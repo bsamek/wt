@@ -132,6 +132,18 @@ func TestParseArgs(t *testing.T) {
 			args:       []string{"create", "--hook"},
 			wantErrMsg: "--hook requires a path argument",
 		},
+		{
+			name:     "gha command no args",
+			args:     []string{"gha"},
+			wantCmd:  "gha",
+			wantName: "",
+			wantHook: defaultHook,
+		},
+		{
+			name:       "gha command with extra arg",
+			args:       []string{"gha", "extra"},
+			wantErrMsg: "unexpected argument: extra",
+		},
 	}
 
 	for _, tt := range tests {
@@ -178,9 +190,11 @@ func TestRun(t *testing.T) {
 	// Save original functions and restore after test
 	origGitRoot := gitRootFn
 	origGitCmd := gitCmdFn
+	origGhPRView := ghPRViewFn
 	defer func() {
 		gitRootFn = origGitRoot
 		gitCmdFn = origGitCmd
+		ghPRViewFn = origGhPRView
 	}()
 
 	t.Run("parse error propagates", func(t *testing.T) {
@@ -216,6 +230,17 @@ func TestRun(t *testing.T) {
 		err := run([]string{"remove", "my-feature"})
 		if err == nil || err.Error() != "mock: not in git repo for remove" {
 			t.Errorf("run() error = %v, want 'mock: not in git repo for remove'", err)
+		}
+	})
+
+	t.Run("gha command calls gha", func(t *testing.T) {
+		ghPRViewFn = func() (*PRStatus, error) {
+			return nil, errors.New("mock: no PR found for current branch")
+		}
+
+		err := run([]string{"gha"})
+		if err == nil || err.Error() != "mock: no PR found for current branch" {
+			t.Errorf("run() error = %v, want 'mock: no PR found for current branch'", err)
 		}
 	})
 }
