@@ -55,6 +55,10 @@ my-repo/
 
 Each worktree has its own working directory, so you can have different branches checked out simultaneously.
 
+### Claude Code Support
+
+If your repository has a `.claude/` directory (used by [Claude Code](https://claude.ai/code) for settings and context), `wt` automatically creates a symlink to it in each new worktree. This keeps your Claude configuration in sync across all worktrees without needing to copy or merge changes.
+
 ## Development
 
 Run tests:
