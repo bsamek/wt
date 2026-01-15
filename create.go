@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 )
 
+// Function variable for testing
+var filepathRel = filepath.Rel
+
 func create(name, hookPath string) error {
 	// Find git root
 	root, err := gitRoot()
@@ -65,7 +68,7 @@ func copyDir(src, dst string) error {
 			return err
 		}
 
-		relPath, err := filepath.Rel(src, path)
+		relPath, err := filepathRel(src, path)
 		if err != nil {
 			return err
 		}
