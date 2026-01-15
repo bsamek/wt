@@ -1,0 +1,1 @@
+- Coverage is required to be 100% by CI and the pre-commit hook. Please add tests for all new features.
