@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+echo "Running tests with coverage..."
+go test -coverprofile=coverage.out -covermode=atomic ./...
+
+COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+
+if [ "$(echo "$COVERAGE < 100" | bc)" -eq 1 ]; then
+    echo "Coverage is ${COVERAGE}%, but 100% is required"
+    go tool cover -func=coverage.out
+    rm -f coverage.out
+    exit 1
+fi
+
+echo "Coverage: ${COVERAGE}%"
+rm -f coverage.out
