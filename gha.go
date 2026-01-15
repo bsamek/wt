@@ -12,13 +12,13 @@ import (
 var (
 	ghPRViewFn = defaultGhPRView
 	sleepFn    = time.Sleep
+	execCommand = exec.Command
 )
 
 // Default polling configuration
-const (
-	defaultPollInterval = 30 * time.Second
-	defaultTimeout      = 60 * time.Minute
-)
+const defaultPollInterval = 30 * time.Second
+
+var ghaTimeout = 60 * time.Minute
 
 // PRStatus represents the GitHub PR status response
 type PRStatus struct {
@@ -50,8 +50,8 @@ func gha() error {
 
 	for {
 		// Check timeout
-		if time.Since(startTime) > defaultTimeout {
-			return fmt.Errorf("timeout: checks did not complete within %v", defaultTimeout)
+		if time.Since(startTime) > ghaTimeout {
+			return fmt.Errorf("timeout: checks did not complete within %v", ghaTimeout)
 		}
 
 		// Get PR status
@@ -82,7 +82,7 @@ func gha() error {
 }
 
 func defaultGhPRView() (*PRStatus, error) {
-	cmd := exec.Command("gh", "pr", "view", "--json", "number,state,statusCheckRollup")
+	cmd := execCommand("gh", "pr", "view", "--json", "number,state,statusCheckRollup")
 	out, err := cmd.Output()
 	if err != nil {
 		// Check if it's because there's no PR
