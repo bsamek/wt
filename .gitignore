@@ -3,3 +3,6 @@ wt
 
 # Coverage
 coverage.out
+
+# Claude
+.claude/
