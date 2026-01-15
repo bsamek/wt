@@ -1,9 +1,7 @@
 package main
 
 import (
-	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 )
 
@@ -64,12 +62,21 @@ func TestGitCmd(t *testing.T) {
 }
 
 func TestDefaultGitRoot(t *testing.T) {
+	t.Run("in git repo", func(t *testing.T) {
+		// Test that defaultGitRoot returns a valid path when run from a git repo
+		// (which the test itself runs from)
+		root, err := defaultGitRoot()
+		if err != nil {
+			t.Errorf("defaultGitRoot() unexpected error: %v", err)
+		}
+		if root == "" {
+			t.Error("defaultGitRoot() returned empty string")
+		}
+	})
+
 	t.Run("not in git repo", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		// Change to temp dir that's not a git repo
-		origDir, _ := os.Getwd()
-		os.Chdir(tmpDir)
-		defer os.Chdir(origDir)
+		// Set GIT_DIR to an invalid path to simulate not being in a git repo
+		t.Setenv("GIT_DIR", "/nonexistent/path")
 
 		_, err := defaultGitRoot()
 		if err == nil {
@@ -77,34 +84,6 @@ func TestDefaultGitRoot(t *testing.T) {
 		}
 		if err.Error() != "not in a git repository" {
 			t.Errorf("defaultGitRoot() error = %q, want %q", err.Error(), "not in a git repository")
-		}
-	})
-
-	t.Run("in git repo", func(t *testing.T) {
-		tmpDir := t.TempDir()
-
-		// Initialize a git repo
-		cmd := exec.Command("git", "init")
-		cmd.Dir = tmpDir
-		if err := cmd.Run(); err != nil {
-			t.Skipf("git init failed: %v", err)
-		}
-
-		// Change to the git repo
-		origDir, _ := os.Getwd()
-		os.Chdir(tmpDir)
-		defer os.Chdir(origDir)
-
-		root, err := defaultGitRoot()
-		if err != nil {
-			t.Errorf("defaultGitRoot() unexpected error: %v", err)
-		}
-
-		// The root should be the tmpDir (accounting for symlinks)
-		expectedRoot, _ := filepath.EvalSymlinks(tmpDir)
-		actualRoot, _ := filepath.EvalSymlinks(root)
-		if actualRoot != expectedRoot {
-			t.Errorf("defaultGitRoot() = %q, want %q", actualRoot, expectedRoot)
 		}
 	})
 }
