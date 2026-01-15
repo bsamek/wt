@@ -22,10 +22,12 @@ func usageText() string {
 	return `Usage: wt [options] <name>
        wt create [options] <name>
        wt remove <name>
+       wt gha
 
 Commands:
   create    Create a new worktree with branch (default if no command given)
   remove    Remove a worktree and its branch
+  gha       Monitor GitHub Actions status for current branch's PR
 
 Options:
   --hook <path>    Custom hook script to run after create (default: .worktree-hook)
@@ -36,6 +38,7 @@ Examples:
   wt create my-feature       Same as above
   wt --hook setup.sh feat    Create worktree, run setup.sh as hook
   wt remove my-feature       Remove worktree and branch
+  wt gha                     Wait for GHA checks on current branch's PR
 `
 }
 
@@ -71,6 +74,9 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 		case "remove":
 			cmd = "remove"
 			i++
+		case "gha":
+			cmd = "gha"
+			i++
 		}
 	}
 
@@ -87,6 +93,14 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 		} else {
 			break
 		}
+	}
+
+	// gha command takes no additional arguments
+	if cmd == "gha" {
+		if i < len(args) {
+			return "", "", "", fmt.Errorf("unexpected argument: %s", args[i])
+		}
+		return cmd, "", hookPath, nil
 	}
 
 	// Remaining arg should be the name
@@ -111,11 +125,14 @@ func run(args []string) error {
 		return err
 	}
 
-	// parseArgs guarantees cmd is "create" or "remove"
-	if cmd == "remove" {
+	switch cmd {
+	case "remove":
 		return remove(name)
+	case "gha":
+		return gha()
+	default:
+		return create(name, hookPath)
 	}
-	return create(name, hookPath)
 }
 
 func main() {
