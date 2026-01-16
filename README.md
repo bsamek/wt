@@ -4,11 +4,25 @@ A lightweight CLI for managing Git worktrees. Work on multiple branches simultan
 
 ## Installation
 
+**Option 1: Go install (recommended)**
+
+If you have a working Go installation and `$GOPATH/bin` (or `$GOBIN`) in your PATH:
+
+```bash
+go install .
+```
+
+**Option 2: Build from source**
+
 ```bash
 go build -o wt .
 ```
 
 Move the binary to a directory in your PATH.
+
+**Option 3: Download from GitHub releases**
+
+Download the executable for your platform from the [GitHub releases](https://github.com/bsamek/wt/releases) page and place it in a directory in your PATH.
 
 ## Usage
 
