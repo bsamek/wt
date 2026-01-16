@@ -30,6 +30,7 @@ Download the executable for your platform from the [GitHub releases](https://git
 wt [options] <name>
 wt create [options] <name>
 wt remove <name>
+wt gha
 ```
 
 ### Commands
@@ -38,6 +39,7 @@ wt remove <name>
 |---------|-------------|
 | `create` | Create a new worktree with branch (default if no command given) |
 | `remove` | Remove a worktree and its branch |
+| `gha` | Monitor GitHub Actions status for current branch's PR |
 
 ### Options
 
@@ -53,6 +55,7 @@ wt my-feature              # Create worktree for 'my-feature' branch
 wt create my-feature       # Same as above
 wt --hook setup.sh feat    # Create worktree, run setup.sh as hook
 wt remove my-feature       # Remove worktree and branch
+wt gha                     # Monitor GitHub Actions for current branch's PR
 ```
 
 ## How It Works
@@ -72,6 +75,16 @@ Each worktree has its own working directory, so you can have different branches 
 ### Claude Code Support
 
 If your repository has a `.claude/` directory (used by [Claude Code](https://claude.ai/code) for settings and context), `wt` automatically creates a symlink to it in each new worktree. This keeps your Claude configuration in sync across all worktrees without needing to copy or merge changes.
+
+## GitHub Actions Monitoring
+
+The `wt gha` command monitors the CI status for the current branch's pull request:
+
+- Polls GitHub Actions status every 30 seconds
+- Displays real-time progress (checks passed/failed/pending)
+- Exits with code 0 when all checks pass
+- Exits with code 1 if any checks fail, timeout occurs (60 min), or no PR exists
+- Requires the [GitHub CLI](https://cli.github.com/) (`gh`) to be installed and authenticated
 
 ## Development
 
