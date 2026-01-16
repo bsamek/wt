@@ -4,11 +4,25 @@ A lightweight CLI for managing Git worktrees. Work on multiple branches simultan
 
 ## Installation
 
+**Option 1: Go install (recommended)**
+
+If you have a working Go installation and `$GOPATH/bin` (or `$GOBIN`) in your PATH:
+
+```bash
+go install .
+```
+
+**Option 2: Build from source**
+
 ```bash
 go build -o wt .
 ```
 
 Move the binary to a directory in your PATH.
+
+**Option 3: Download from GitHub releases**
+
+Download the executable for your platform from the [GitHub releases](https://github.com/bsamek/wt/releases) page and place it in a directory in your PATH.
 
 ## Usage
 
@@ -57,6 +71,10 @@ my-repo/
 ```
 
 Each worktree has its own working directory, so you can have different branches checked out simultaneously.
+
+### Claude Code Support
+
+If your repository has a `.claude/` directory (used by [Claude Code](https://claude.ai/code) for settings and context), `wt` automatically creates a symlink to it in each new worktree. This keeps your Claude configuration in sync across all worktrees without needing to copy or merge changes.
 
 ## GitHub Actions Monitoring
 
