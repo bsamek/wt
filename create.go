@@ -8,46 +8,41 @@ import (
 )
 
 func create(name, hookPath string) error {
-	// Find git root
-	root, err := gitRoot()
+	wm, err := NewWorktreeManager()
 	if err != nil {
 		return err
 	}
 
-	// Check .worktrees directory exists
-	worktreesDir := filepath.Join(root, ".worktrees")
-	if _, err := os.Stat(worktreesDir); os.IsNotExist(err) {
-		return fmt.Errorf(".worktrees directory does not exist (create it first)")
+	if err := wm.ValidateWorktreesDir(); err != nil {
+		return err
 	}
 
-	worktreePath := filepath.Join(worktreesDir, name)
+	worktreePath := wm.WorktreePath(name)
 
 	// Create worktree with new branch
-	fmt.Printf("Creating worktree at .worktrees/%s with branch %s\n", name, name)
-	if err := gitCmd(root, "worktree", "add", worktreePath, "-b", name); err != nil {
+	fmt.Printf("Creating worktree at %s/%s with branch %s\n", WorktreesDir, name, name)
+	if err := gitCmd(wm.Root(), "worktree", "add", worktreePath, "-b", name); err != nil {
 		return fmt.Errorf("failed to create worktree: %w", err)
 	}
 
 	// Create symlink to .claude/ directory if it exists
-	claudeDir := filepath.Join(root, ".claude")
-	if _, err := os.Stat(claudeDir); err == nil {
-		fmt.Println("Creating symlink to .claude/ directory...")
-		dstClaudeDir := filepath.Join(worktreePath, ".claude")
-		if err := os.Symlink(claudeDir, dstClaudeDir); err != nil {
-			return fmt.Errorf("failed to create .claude/ symlink: %w", err)
+	if wm.ClaudeDirExists() {
+		fmt.Printf("Creating symlink to %s/ directory...\n", ClaudeDir)
+		dstClaudeDir := filepath.Join(worktreePath, ClaudeDir)
+		if err := os.Symlink(wm.ClaudePath(), dstClaudeDir); err != nil {
+			return fmt.Errorf("failed to create %s/ symlink: %w", ClaudeDir, err)
 		}
 	}
 
 	// Run hook if it exists
-	hookFullPath := filepath.Join(root, hookPath)
-	if _, err := os.Stat(hookFullPath); err == nil {
+	if wm.HookExists(hookPath) {
 		fmt.Printf("Running hook: %s\n", hookPath)
-		if err := runHook(hookFullPath, worktreePath); err != nil {
+		if err := runHook(wm.HookPath(hookPath), worktreePath); err != nil {
 			return fmt.Errorf("hook failed: %w", err)
 		}
 	}
 
-	fmt.Printf("Done! Worktree ready at .worktrees/%s\n", name)
+	fmt.Printf("Done! Worktree ready at %s/%s\n", WorktreesDir, name)
 	return nil
 }
 

@@ -22,7 +22,7 @@ func TestCreate(t *testing.T) {
 			return "", errors.New("not in a git repository")
 		}
 
-		err := create("test-branch", ".worktree-hook")
+		err := create("test-branch", DefaultHook)
 		if err == nil || err.Error() != "not in a git repository" {
 			t.Errorf("create() error = %v, want 'not in a git repository'", err)
 		}
@@ -35,15 +35,15 @@ func TestCreate(t *testing.T) {
 			return tmpDir, nil
 		}
 
-		err := create("test-branch", ".worktree-hook")
-		if err == nil || !strings.Contains(err.Error(), ".worktrees directory does not exist") {
-			t.Errorf("create() error = %v, want error about .worktrees not existing", err)
+		err := create("test-branch", DefaultHook)
+		if err == nil || !strings.Contains(err.Error(), WorktreesDir+" directory does not exist") {
+			t.Errorf("create() error = %v, want error about %s not existing", err, WorktreesDir)
 		}
 	})
 
 	t.Run("git worktree add fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		os.MkdirAll(filepath.Join(tmpDir, ".worktrees"), 0755)
+		os.MkdirAll(filepath.Join(tmpDir, WorktreesDir), 0755)
 
 		gitRootFn = func() (string, error) {
 			return tmpDir, nil
@@ -55,7 +55,7 @@ func TestCreate(t *testing.T) {
 			return nil
 		}
 
-		err := create("test-branch", ".worktree-hook")
+		err := create("test-branch", DefaultHook)
 		if err == nil || !strings.Contains(err.Error(), "failed to create worktree") {
 			t.Errorf("create() error = %v, want error about failed to create worktree", err)
 		}
@@ -63,7 +63,7 @@ func TestCreate(t *testing.T) {
 
 	t.Run("success without hook", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		os.MkdirAll(filepath.Join(tmpDir, ".worktrees"), 0755)
+		os.MkdirAll(filepath.Join(tmpDir, WorktreesDir), 0755)
 
 		gitRootFn = func() (string, error) {
 			return tmpDir, nil
@@ -72,7 +72,7 @@ func TestCreate(t *testing.T) {
 			return nil
 		}
 
-		err := create("test-branch", ".worktree-hook")
+		err := create("test-branch", DefaultHook)
 		if err != nil {
 			t.Errorf("create() unexpected error: %v", err)
 		}
@@ -80,11 +80,11 @@ func TestCreate(t *testing.T) {
 
 	t.Run("success with hook", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		worktreesDir := filepath.Join(tmpDir, ".worktrees")
+		worktreesDir := filepath.Join(tmpDir, WorktreesDir)
 		os.MkdirAll(worktreesDir, 0755)
 
 		// Create a hook script that succeeds
-		hookPath := filepath.Join(tmpDir, ".worktree-hook")
+		hookPath := filepath.Join(tmpDir, DefaultHook)
 		err := os.WriteFile(hookPath, []byte("#!/bin/sh\nexit 0\n"), 0755)
 		if err != nil {
 			t.Fatalf("failed to create hook: %v", err)
@@ -104,7 +104,7 @@ func TestCreate(t *testing.T) {
 			return nil
 		}
 
-		err = create("test-branch", ".worktree-hook")
+		err = create("test-branch", DefaultHook)
 		if err != nil {
 			t.Errorf("create() unexpected error: %v", err)
 		}
@@ -112,11 +112,11 @@ func TestCreate(t *testing.T) {
 
 	t.Run("hook fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		worktreesDir := filepath.Join(tmpDir, ".worktrees")
+		worktreesDir := filepath.Join(tmpDir, WorktreesDir)
 		os.MkdirAll(worktreesDir, 0755)
 
 		// Create a hook script that fails
-		hookPath := filepath.Join(tmpDir, ".worktree-hook")
+		hookPath := filepath.Join(tmpDir, DefaultHook)
 		err := os.WriteFile(hookPath, []byte("#!/bin/sh\nexit 1\n"), 0755)
 		if err != nil {
 			t.Fatalf("failed to create hook: %v", err)
@@ -135,7 +135,7 @@ func TestCreate(t *testing.T) {
 			return nil
 		}
 
-		err = create("test-branch", ".worktree-hook")
+		err = create("test-branch", DefaultHook)
 		if err == nil || !strings.Contains(err.Error(), "hook failed") {
 			t.Errorf("create() error = %v, want error about hook failed", err)
 		}
@@ -143,7 +143,7 @@ func TestCreate(t *testing.T) {
 
 	t.Run("custom hook path", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		worktreesDir := filepath.Join(tmpDir, ".worktrees")
+		worktreesDir := filepath.Join(tmpDir, WorktreesDir)
 		os.MkdirAll(worktreesDir, 0755)
 
 		// Create a custom hook script
@@ -173,11 +173,11 @@ func TestCreate(t *testing.T) {
 
 	t.Run("creates symlink to .claude directory", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		worktreesDir := filepath.Join(tmpDir, ".worktrees")
+		worktreesDir := filepath.Join(tmpDir, WorktreesDir)
 		os.MkdirAll(worktreesDir, 0755)
 
 		// Create .claude directory with a file
-		claudeDir := filepath.Join(tmpDir, ".claude")
+		claudeDir := filepath.Join(tmpDir, ClaudeDir)
 		os.MkdirAll(claudeDir, 0755)
 		os.WriteFile(filepath.Join(claudeDir, "test.md"), []byte("test content"), 0644)
 
@@ -193,19 +193,19 @@ func TestCreate(t *testing.T) {
 			return nil
 		}
 
-		err := create("test-branch", ".worktree-hook")
+		err := create("test-branch", DefaultHook)
 		if err != nil {
 			t.Errorf("create() unexpected error: %v", err)
 		}
 
 		// Verify symlink was created
-		symlinkPath := filepath.Join(worktreePath, ".claude")
+		symlinkPath := filepath.Join(worktreePath, ClaudeDir)
 		info, err := os.Lstat(symlinkPath)
 		if err != nil {
 			t.Fatalf("failed to stat symlink: %v", err)
 		}
 		if info.Mode()&os.ModeSymlink == 0 {
-			t.Error("expected .claude to be a symlink")
+			t.Errorf("expected %s to be a symlink", ClaudeDir)
 		}
 
 		// Verify symlink points to correct location
@@ -220,11 +220,11 @@ func TestCreate(t *testing.T) {
 
 	t.Run("symlink creation fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		worktreesDir := filepath.Join(tmpDir, ".worktrees")
+		worktreesDir := filepath.Join(tmpDir, WorktreesDir)
 		os.MkdirAll(worktreesDir, 0755)
 
 		// Create .claude directory
-		claudeDir := filepath.Join(tmpDir, ".claude")
+		claudeDir := filepath.Join(tmpDir, ClaudeDir)
 		os.MkdirAll(claudeDir, 0755)
 
 		worktreePath := filepath.Join(worktreesDir, "test-branch")
@@ -236,13 +236,13 @@ func TestCreate(t *testing.T) {
 			if len(args) > 0 && args[0] == "worktree" {
 				os.MkdirAll(worktreePath, 0755)
 				// Create a file at .claude path to make symlink fail
-				os.WriteFile(filepath.Join(worktreePath, ".claude"), []byte("block"), 0644)
+				os.WriteFile(filepath.Join(worktreePath, ClaudeDir), []byte("block"), 0644)
 			}
 			return nil
 		}
 
-		err := create("test-branch", ".worktree-hook")
-		if err == nil || !strings.Contains(err.Error(), "failed to create .claude/ symlink") {
+		err := create("test-branch", DefaultHook)
+		if err == nil || !strings.Contains(err.Error(), "failed to create "+ClaudeDir+"/ symlink") {
 			t.Errorf("create() error = %v, want error about failed to create symlink", err)
 		}
 	})

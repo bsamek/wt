@@ -4,21 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"strings"
+	"regexp"
 	"time"
 )
 
 // Function variables for testing (following git.go pattern)
 var (
-	ghPRViewFn = defaultGhPRView
-	sleepFn    = time.Sleep
+	ghPRViewFn  = defaultGhPRView
+	sleepFn     = time.Sleep
 	execCommand = exec.Command
 )
-
-// Default polling configuration
-const defaultPollInterval = 30 * time.Second
-
-var ghaTimeout = 60 * time.Minute
 
 // PRStatus represents the GitHub PR status response
 type PRStatus struct {
@@ -43,6 +38,32 @@ const (
 	CheckResultFailure
 )
 
+// CheckStats holds the counts of check statuses
+type CheckStats struct {
+	Passed  int
+	Failed  int
+	Pending int
+	Total   int
+}
+
+// String returns a human-readable summary of the check stats
+func (cs CheckStats) String() string {
+	completed := cs.Passed + cs.Failed
+	return fmt.Sprintf("Checks: %d/%d completed (%d passed, %d failed, %d pending)",
+		completed, cs.Total, cs.Passed, cs.Failed, cs.Pending)
+}
+
+// Result returns the overall check result based on stats
+func (cs CheckStats) Result() CheckResult {
+	if cs.Pending > 0 {
+		return CheckResultPending
+	}
+	if cs.Failed > 0 {
+		return CheckResultFailure
+	}
+	return CheckResultSuccess
+}
+
 func gha() error {
 	startTime := time.Now()
 
@@ -50,8 +71,8 @@ func gha() error {
 
 	for {
 		// Check timeout
-		if time.Since(startTime) > ghaTimeout {
-			return fmt.Errorf("timeout: checks did not complete within %v", ghaTimeout)
+		if time.Since(startTime) > GHATimeout {
+			return fmt.Errorf("timeout: checks did not complete within %v", GHATimeout)
 		}
 
 		// Get PR status
@@ -76,9 +97,17 @@ func gha() error {
 			return fmt.Errorf("checks failed")
 		case CheckResultPending:
 			// Continue polling
-			sleepFn(defaultPollInterval)
+			sleepFn(DefaultPollInterval)
 		}
 	}
+}
+
+// noPRRegex matches the "no pull request(s)" error message from gh CLI
+var noPRRegex = regexp.MustCompile(`no pull requests?`)
+
+// isNoPRError checks if the error message indicates no PR was found
+func isNoPRError(stderr string) bool {
+	return noPRRegex.MatchString(stderr)
 }
 
 func defaultGhPRView() (*PRStatus, error) {
@@ -88,7 +117,7 @@ func defaultGhPRView() (*PRStatus, error) {
 		// Check if it's because there's no PR
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			stderr := string(exitErr.Stderr)
-			if strings.Contains(stderr, "no pull request") || strings.Contains(stderr, "no pull requests") {
+			if isNoPRError(stderr) {
 				return nil, fmt.Errorf("no PR found for current branch")
 			}
 		}
@@ -103,58 +132,76 @@ func defaultGhPRView() (*PRStatus, error) {
 	return &status, nil
 }
 
+// isCheckComplete returns true if the check has completed
+func isCheckComplete(check CheckStatus) bool {
+	return check.Status == CheckStatusCompleted
+}
+
+// isCheckSuccess returns true if the check completed successfully
+func isCheckSuccess(check CheckStatus) bool {
+	switch check.Conclusion {
+	case CheckConclusionSuccess, CheckConclusionNeutral, CheckConclusionSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
+// countCheckStatuses counts check statuses and returns stats
+func countCheckStatuses(checks []CheckStatus) CheckStats {
+	stats := CheckStats{Total: len(checks)}
+	for _, check := range checks {
+		if isCheckComplete(check) {
+			if isCheckSuccess(check) {
+				stats.Passed++
+			} else {
+				stats.Failed++
+			}
+		} else {
+			stats.Pending++
+		}
+	}
+	return stats
+}
+
 func analyzeChecks(checks []CheckStatus) (CheckResult, string) {
 	if len(checks) == 0 {
 		return CheckResultPending, "No checks found yet..."
 	}
 
-	var pending, passed, failed int
+	stats := countCheckStatuses(checks)
+	return stats.Result(), stats.String()
+}
 
-	for _, check := range checks {
-		switch check.Status {
-		case "COMPLETED":
-			switch check.Conclusion {
-			case "SUCCESS", "NEUTRAL", "SKIPPED":
-				passed++
-			default:
-				failed++
-			}
-		default:
-			pending++
-		}
+// getCheckMarker returns the display marker for a check
+func getCheckMarker(check CheckStatus) string {
+	if !isCheckComplete(check) {
+		return MarkerPending
 	}
 
-	total := len(checks)
-	summary := fmt.Sprintf("Checks: %d/%d completed (%d passed, %d failed, %d pending)",
-		passed+failed, total, passed, failed, pending)
+	switch check.Conclusion {
+	case CheckConclusionSuccess:
+		return MarkerSuccess
+	case CheckConclusionFailure:
+		return MarkerFailure
+	default:
+		return MarkerPending
+	}
+}
 
-	if pending > 0 {
-		return CheckResultPending, summary
+// getCheckStatusDisplay returns the status string to display for a check
+func getCheckStatusDisplay(check CheckStatus) string {
+	if isCheckComplete(check) {
+		return check.Conclusion
 	}
-	if failed > 0 {
-		return CheckResultFailure, summary
-	}
-	return CheckResultSuccess, summary
+	return check.Status
 }
 
 func printCheckDetails(checks []CheckStatus) {
 	fmt.Println("\nCheck details:")
 	for _, check := range checks {
-		var status string
-		if check.Status == "COMPLETED" {
-			status = check.Conclusion
-		} else {
-			status = check.Status
-		}
-
-		// Use simple markers for pass/fail
-		marker := " "
-		if check.Conclusion == "SUCCESS" {
-			marker = "+"
-		} else if check.Conclusion == "FAILURE" {
-			marker = "x"
-		}
-
+		marker := getCheckMarker(check)
+		status := getCheckStatusDisplay(check)
 		fmt.Printf("  [%s] %s: %s\n", marker, check.Name, status)
 	}
 }

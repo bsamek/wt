@@ -36,8 +36,8 @@ func TestGha(t *testing.T) {
 				Number: 123,
 				State:  "OPEN",
 				StatusCheckRollup: []CheckStatus{
-					{Name: "build", Status: "COMPLETED", Conclusion: "SUCCESS"},
-					{Name: "test", Status: "COMPLETED", Conclusion: "SUCCESS"},
+					{Name: "build", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
+					{Name: "test", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
 				},
 			}, nil
 		}
@@ -54,8 +54,8 @@ func TestGha(t *testing.T) {
 				Number: 123,
 				State:  "OPEN",
 				StatusCheckRollup: []CheckStatus{
-					{Name: "build", Status: "COMPLETED", Conclusion: "SUCCESS"},
-					{Name: "test", Status: "COMPLETED", Conclusion: "FAILURE"},
+					{Name: "build", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
+					{Name: "test", Status: CheckStatusCompleted, Conclusion: CheckConclusionFailure},
 				},
 			}, nil
 		}
@@ -75,7 +75,7 @@ func TestGha(t *testing.T) {
 					Number: 123,
 					State:  "OPEN",
 					StatusCheckRollup: []CheckStatus{
-						{Name: "build", Status: "IN_PROGRESS", Conclusion: ""},
+						{Name: "build", Status: CheckStatusInProgress, Conclusion: ""},
 					},
 				}, nil
 			}
@@ -83,7 +83,7 @@ func TestGha(t *testing.T) {
 				Number: 123,
 				State:  "OPEN",
 				StatusCheckRollup: []CheckStatus{
-					{Name: "build", Status: "COMPLETED", Conclusion: "SUCCESS"},
+					{Name: "build", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
 				},
 			}, nil
 		}
@@ -103,11 +103,11 @@ func TestGha(t *testing.T) {
 
 	t.Run("timeout", func(t *testing.T) {
 		// Save original timeout and restore after test
-		origTimeout := ghaTimeout
-		defer func() { ghaTimeout = origTimeout }()
+		origTimeout := GHATimeout
+		defer func() { GHATimeout = origTimeout }()
 
 		// Set a very short timeout
-		ghaTimeout = 1 * time.Nanosecond
+		GHATimeout = 1 * time.Nanosecond
 
 		ghPRViewFn = func() (*PRStatus, error) {
 			// Simulate time passing
@@ -116,7 +116,7 @@ func TestGha(t *testing.T) {
 				Number: 123,
 				State:  "OPEN",
 				StatusCheckRollup: []CheckStatus{
-					{Name: "build", Status: "IN_PROGRESS", Conclusion: ""},
+					{Name: "build", Status: CheckStatusInProgress, Conclusion: ""},
 				},
 			}, nil
 		}
@@ -146,52 +146,52 @@ func TestAnalyzeChecks(t *testing.T) {
 		{
 			name: "all success",
 			checks: []CheckStatus{
-				{Name: "build", Status: "COMPLETED", Conclusion: "SUCCESS"},
-				{Name: "test", Status: "COMPLETED", Conclusion: "SUCCESS"},
+				{Name: "build", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
+				{Name: "test", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
 			},
 			wantResult: CheckResultSuccess,
 		},
 		{
 			name: "one failure",
 			checks: []CheckStatus{
-				{Name: "build", Status: "COMPLETED", Conclusion: "SUCCESS"},
-				{Name: "test", Status: "COMPLETED", Conclusion: "FAILURE"},
+				{Name: "build", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
+				{Name: "test", Status: CheckStatusCompleted, Conclusion: CheckConclusionFailure},
 			},
 			wantResult: CheckResultFailure,
 		},
 		{
 			name: "still pending",
 			checks: []CheckStatus{
-				{Name: "build", Status: "COMPLETED", Conclusion: "SUCCESS"},
-				{Name: "test", Status: "IN_PROGRESS", Conclusion: ""},
+				{Name: "build", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
+				{Name: "test", Status: CheckStatusInProgress, Conclusion: ""},
 			},
 			wantResult: CheckResultPending,
 		},
 		{
 			name: "skipped counts as success",
 			checks: []CheckStatus{
-				{Name: "build", Status: "COMPLETED", Conclusion: "SKIPPED"},
+				{Name: "build", Status: CheckStatusCompleted, Conclusion: CheckConclusionSkipped},
 			},
 			wantResult: CheckResultSuccess,
 		},
 		{
 			name: "neutral counts as success",
 			checks: []CheckStatus{
-				{Name: "lint", Status: "COMPLETED", Conclusion: "NEUTRAL"},
+				{Name: "lint", Status: CheckStatusCompleted, Conclusion: CheckConclusionNeutral},
 			},
 			wantResult: CheckResultSuccess,
 		},
 		{
 			name: "cancelled counts as failure",
 			checks: []CheckStatus{
-				{Name: "build", Status: "COMPLETED", Conclusion: "CANCELLED"},
+				{Name: "build", Status: CheckStatusCompleted, Conclusion: CheckConclusionCancelled},
 			},
 			wantResult: CheckResultFailure,
 		},
 		{
 			name: "queued status is pending",
 			checks: []CheckStatus{
-				{Name: "build", Status: "QUEUED", Conclusion: ""},
+				{Name: "build", Status: CheckStatusQueued, Conclusion: ""},
 			},
 			wantResult: CheckResultPending,
 		},
@@ -202,6 +202,165 @@ func TestAnalyzeChecks(t *testing.T) {
 			result, _ := analyzeChecks(tt.checks)
 			if result != tt.wantResult {
 				t.Errorf("analyzeChecks() result = %v, want %v", result, tt.wantResult)
+			}
+		})
+	}
+}
+
+func TestCheckStats(t *testing.T) {
+	t.Run("String", func(t *testing.T) {
+		stats := CheckStats{Passed: 2, Failed: 1, Pending: 1, Total: 4}
+		expected := "Checks: 3/4 completed (2 passed, 1 failed, 1 pending)"
+		if stats.String() != expected {
+			t.Errorf("CheckStats.String() = %q, want %q", stats.String(), expected)
+		}
+	})
+
+	t.Run("Result pending", func(t *testing.T) {
+		stats := CheckStats{Passed: 2, Failed: 0, Pending: 1, Total: 3}
+		if stats.Result() != CheckResultPending {
+			t.Errorf("CheckStats.Result() = %v, want CheckResultPending", stats.Result())
+		}
+	})
+
+	t.Run("Result failure", func(t *testing.T) {
+		stats := CheckStats{Passed: 2, Failed: 1, Pending: 0, Total: 3}
+		if stats.Result() != CheckResultFailure {
+			t.Errorf("CheckStats.Result() = %v, want CheckResultFailure", stats.Result())
+		}
+	})
+
+	t.Run("Result success", func(t *testing.T) {
+		stats := CheckStats{Passed: 3, Failed: 0, Pending: 0, Total: 3}
+		if stats.Result() != CheckResultSuccess {
+			t.Errorf("CheckStats.Result() = %v, want CheckResultSuccess", stats.Result())
+		}
+	})
+}
+
+func TestIsCheckComplete(t *testing.T) {
+	tests := []struct {
+		name  string
+		check CheckStatus
+		want  bool
+	}{
+		{"completed", CheckStatus{Status: CheckStatusCompleted}, true},
+		{"in progress", CheckStatus{Status: CheckStatusInProgress}, false},
+		{"queued", CheckStatus{Status: CheckStatusQueued}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isCheckComplete(tt.check); got != tt.want {
+				t.Errorf("isCheckComplete() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsCheckSuccess(t *testing.T) {
+	tests := []struct {
+		name  string
+		check CheckStatus
+		want  bool
+	}{
+		{"success", CheckStatus{Conclusion: CheckConclusionSuccess}, true},
+		{"neutral", CheckStatus{Conclusion: CheckConclusionNeutral}, true},
+		{"skipped", CheckStatus{Conclusion: CheckConclusionSkipped}, true},
+		{"failure", CheckStatus{Conclusion: CheckConclusionFailure}, false},
+		{"cancelled", CheckStatus{Conclusion: CheckConclusionCancelled}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isCheckSuccess(tt.check); got != tt.want {
+				t.Errorf("isCheckSuccess() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCountCheckStatuses(t *testing.T) {
+	checks := []CheckStatus{
+		{Name: "a", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
+		{Name: "b", Status: CheckStatusCompleted, Conclusion: CheckConclusionFailure},
+		{Name: "c", Status: CheckStatusInProgress, Conclusion: ""},
+	}
+
+	stats := countCheckStatuses(checks)
+
+	if stats.Total != 3 {
+		t.Errorf("stats.Total = %d, want 3", stats.Total)
+	}
+	if stats.Passed != 1 {
+		t.Errorf("stats.Passed = %d, want 1", stats.Passed)
+	}
+	if stats.Failed != 1 {
+		t.Errorf("stats.Failed = %d, want 1", stats.Failed)
+	}
+	if stats.Pending != 1 {
+		t.Errorf("stats.Pending = %d, want 1", stats.Pending)
+	}
+}
+
+func TestGetCheckMarker(t *testing.T) {
+	tests := []struct {
+		name  string
+		check CheckStatus
+		want  string
+	}{
+		{"success", CheckStatus{Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess}, MarkerSuccess},
+		{"failure", CheckStatus{Status: CheckStatusCompleted, Conclusion: CheckConclusionFailure}, MarkerFailure},
+		{"neutral", CheckStatus{Status: CheckStatusCompleted, Conclusion: CheckConclusionNeutral}, MarkerPending},
+		{"in progress", CheckStatus{Status: CheckStatusInProgress}, MarkerPending},
+		{"queued", CheckStatus{Status: CheckStatusQueued}, MarkerPending},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getCheckMarker(tt.check); got != tt.want {
+				t.Errorf("getCheckMarker() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetCheckStatusDisplay(t *testing.T) {
+	tests := []struct {
+		name  string
+		check CheckStatus
+		want  string
+	}{
+		{"completed shows conclusion", CheckStatus{Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess}, CheckConclusionSuccess},
+		{"in progress shows status", CheckStatus{Status: CheckStatusInProgress, Conclusion: ""}, CheckStatusInProgress},
+		{"queued shows status", CheckStatus{Status: CheckStatusQueued, Conclusion: ""}, CheckStatusQueued},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getCheckStatusDisplay(tt.check); got != tt.want {
+				t.Errorf("getCheckStatusDisplay() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsNoPRError(t *testing.T) {
+	tests := []struct {
+		name   string
+		stderr string
+		want   bool
+	}{
+		{"singular", "no pull request found for branch", true},
+		{"plural", "no pull requests found for branch", true},
+		{"other error", "some other error message", false},
+		{"empty", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isNoPRError(tt.stderr); got != tt.want {
+				t.Errorf("isNoPRError(%q) = %v, want %v", tt.stderr, got, tt.want)
 			}
 		})
 	}
@@ -295,7 +454,7 @@ func TestPrintCheckDetails(t *testing.T) {
 		os.Stdout = w
 
 		checks := []CheckStatus{
-			{Name: "build", Status: "COMPLETED", Conclusion: "SUCCESS"},
+			{Name: "build", Status: CheckStatusCompleted, Conclusion: CheckConclusionSuccess},
 		}
 		printCheckDetails(checks)
 
@@ -304,8 +463,8 @@ func TestPrintCheckDetails(t *testing.T) {
 		buf.ReadFrom(r)
 		output := buf.String()
 
-		if !strings.Contains(output, "[+]") {
-			t.Errorf("printCheckDetails() output missing [+] marker: %s", output)
+		if !strings.Contains(output, "["+MarkerSuccess+"]") {
+			t.Errorf("printCheckDetails() output missing [%s] marker: %s", MarkerSuccess, output)
 		}
 		if !strings.Contains(output, "build") {
 			t.Errorf("printCheckDetails() output missing check name: %s", output)
@@ -317,7 +476,7 @@ func TestPrintCheckDetails(t *testing.T) {
 		os.Stdout = w
 
 		checks := []CheckStatus{
-			{Name: "test", Status: "COMPLETED", Conclusion: "FAILURE"},
+			{Name: "test", Status: CheckStatusCompleted, Conclusion: CheckConclusionFailure},
 		}
 		printCheckDetails(checks)
 
@@ -326,8 +485,8 @@ func TestPrintCheckDetails(t *testing.T) {
 		buf.ReadFrom(r)
 		output := buf.String()
 
-		if !strings.Contains(output, "[x]") {
-			t.Errorf("printCheckDetails() output missing [x] marker: %s", output)
+		if !strings.Contains(output, "["+MarkerFailure+"]") {
+			t.Errorf("printCheckDetails() output missing [%s] marker: %s", MarkerFailure, output)
 		}
 	})
 
@@ -336,7 +495,7 @@ func TestPrintCheckDetails(t *testing.T) {
 		os.Stdout = w
 
 		checks := []CheckStatus{
-			{Name: "build", Status: "IN_PROGRESS", Conclusion: ""},
+			{Name: "build", Status: CheckStatusInProgress, Conclusion: ""},
 		}
 		printCheckDetails(checks)
 
@@ -345,11 +504,11 @@ func TestPrintCheckDetails(t *testing.T) {
 		buf.ReadFrom(r)
 		output := buf.String()
 
-		if !strings.Contains(output, "IN_PROGRESS") {
-			t.Errorf("printCheckDetails() output missing IN_PROGRESS status: %s", output)
+		if !strings.Contains(output, CheckStatusInProgress) {
+			t.Errorf("printCheckDetails() output missing %s status: %s", CheckStatusInProgress, output)
 		}
-		if !strings.Contains(output, "[ ]") {
-			t.Errorf("printCheckDetails() output missing [ ] marker: %s", output)
+		if !strings.Contains(output, "["+MarkerPending+"]") {
+			t.Errorf("printCheckDetails() output missing [%s] marker: %s", MarkerPending, output)
 		}
 	})
 
@@ -358,7 +517,7 @@ func TestPrintCheckDetails(t *testing.T) {
 		os.Stdout = w
 
 		checks := []CheckStatus{
-			{Name: "deploy", Status: "QUEUED", Conclusion: ""},
+			{Name: "deploy", Status: CheckStatusQueued, Conclusion: ""},
 		}
 		printCheckDetails(checks)
 
@@ -367,8 +526,8 @@ func TestPrintCheckDetails(t *testing.T) {
 		buf.ReadFrom(r)
 		output := buf.String()
 
-		if !strings.Contains(output, "QUEUED") {
-			t.Errorf("printCheckDetails() output missing QUEUED status: %s", output)
+		if !strings.Contains(output, CheckStatusQueued) {
+			t.Errorf("printCheckDetails() output missing %s status: %s", CheckStatusQueued, output)
 		}
 	})
 
@@ -377,7 +536,7 @@ func TestPrintCheckDetails(t *testing.T) {
 		os.Stdout = w
 
 		checks := []CheckStatus{
-			{Name: "optional", Status: "COMPLETED", Conclusion: "NEUTRAL"},
+			{Name: "optional", Status: CheckStatusCompleted, Conclusion: CheckConclusionNeutral},
 		}
 		printCheckDetails(checks)
 
@@ -387,8 +546,8 @@ func TestPrintCheckDetails(t *testing.T) {
 		output := buf.String()
 
 		// NEUTRAL is neither SUCCESS nor FAILURE, so marker should be space
-		if !strings.Contains(output, "[ ]") {
-			t.Errorf("printCheckDetails() output missing [ ] marker for NEUTRAL: %s", output)
+		if !strings.Contains(output, "["+MarkerPending+"]") {
+			t.Errorf("printCheckDetails() output missing [%s] marker for NEUTRAL: %s", MarkerPending, output)
 		}
 	})
 }
