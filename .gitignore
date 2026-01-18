@@ -4,5 +4,5 @@ wt
 # Coverage
 coverage.out
 
-# Claude
-.claude/
+# Claude (no trailing slash to also match symlinks)
+.claude
