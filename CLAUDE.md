@@ -1,1 +1,2 @@
 - Coverage is required to be 100% by CI and the pre-commit hook. Please add tests for all new features.
+- Please add documentation to README.md for all new features.
