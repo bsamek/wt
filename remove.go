@@ -7,9 +7,6 @@ import (
 	"strings"
 )
 
-// getwdFn is replaceable for testing
-var getwdFn = os.Getwd
-
 func remove(name string) error {
 	wm, err := NewWorktreeManager()
 	if err != nil {

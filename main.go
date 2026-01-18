@@ -22,13 +22,13 @@ var validCommands = []string{"create", "remove", "gha", "completion", "__complet
 func usageText() string {
 	return `Usage: wt [options] <name>
        wt create [options] <name>
-       wt remove <name>
+       wt remove [name]
        wt gha
        wt completion <shell>
 
 Commands:
   create      Create a new worktree with branch (default if no command given)
-  remove      Remove a worktree and its branch
+  remove      Remove a worktree and its branch (auto-detects if inside worktree)
   gha         Monitor GitHub Actions status for current branch's PR
   completion  Generate shell completion script (bash, zsh, fish)
 
@@ -41,6 +41,7 @@ Examples:
   wt create my-feature       Same as above
   wt --hook setup.sh feat    Create worktree, run setup.sh as hook
   wt remove my-feature       Remove worktree and branch
+  wt remove                  Remove current worktree (when inside one)
   wt gha                     Wait for GHA checks on current branch's PR
   wt completion bash         Generate bash completion script
 `
@@ -150,6 +151,11 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 		return cmd, name, hookPath, nil
 	}
 
+	// remove command: name is optional (can detect from current worktree)
+	if cmd == "remove" && idx >= len(args) {
+		return cmd, "", hookPath, nil
+	}
+
 	// Remaining arg should be the name
 	if idx >= len(args) {
 		return "", "", "", fmt.Errorf("branch name required")
@@ -174,6 +180,17 @@ func run(args []string) error {
 
 	switch cmd {
 	case "remove":
+		if name == "" {
+			wm, err := NewWorktreeManager()
+			if err != nil {
+				return err
+			}
+			// CurrentWorktreeName returns empty string if not in worktree (never errors)
+			name, _ = wm.CurrentWorktreeName()
+			if name == "" {
+				return fmt.Errorf("not inside a worktree (specify branch name)")
+			}
+		}
 		return remove(name)
 	case "gha":
 		return gha()

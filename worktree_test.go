@@ -149,3 +149,96 @@ func TestWorktreeManagerHookExists(t *testing.T) {
 		}
 	})
 }
+
+func TestCurrentWorktreeName(t *testing.T) {
+	// Save original function and restore after test
+	origGetwd := getwdFn
+	defer func() {
+		getwdFn = origGetwd
+	}()
+
+	t.Run("inside worktree root", func(t *testing.T) {
+		tmpDir := "/test/repo"
+		wm := &WorktreeManager{root: tmpDir}
+
+		getwdFn = func() (string, error) {
+			return filepath.Join(tmpDir, WorktreesDir, "my-feature"), nil
+		}
+
+		name, err := wm.CurrentWorktreeName()
+		if err != nil {
+			t.Errorf("CurrentWorktreeName() unexpected error: %v", err)
+		}
+		if name != "my-feature" {
+			t.Errorf("CurrentWorktreeName() = %q, want %q", name, "my-feature")
+		}
+	})
+
+	t.Run("inside worktree subdirectory", func(t *testing.T) {
+		tmpDir := "/test/repo"
+		wm := &WorktreeManager{root: tmpDir}
+
+		getwdFn = func() (string, error) {
+			return filepath.Join(tmpDir, WorktreesDir, "my-feature", "src", "components"), nil
+		}
+
+		name, err := wm.CurrentWorktreeName()
+		if err != nil {
+			t.Errorf("CurrentWorktreeName() unexpected error: %v", err)
+		}
+		if name != "my-feature" {
+			t.Errorf("CurrentWorktreeName() = %q, want %q", name, "my-feature")
+		}
+	})
+
+	t.Run("not inside worktree - in repo root", func(t *testing.T) {
+		tmpDir := "/test/repo"
+		wm := &WorktreeManager{root: tmpDir}
+
+		getwdFn = func() (string, error) {
+			return tmpDir, nil
+		}
+
+		name, err := wm.CurrentWorktreeName()
+		if err != nil {
+			t.Errorf("CurrentWorktreeName() unexpected error: %v", err)
+		}
+		if name != "" {
+			t.Errorf("CurrentWorktreeName() = %q, want empty string", name)
+		}
+	})
+
+	t.Run("not inside worktree - different directory", func(t *testing.T) {
+		tmpDir := "/test/repo"
+		wm := &WorktreeManager{root: tmpDir}
+
+		getwdFn = func() (string, error) {
+			return "/some/other/directory", nil
+		}
+
+		name, err := wm.CurrentWorktreeName()
+		if err != nil {
+			t.Errorf("CurrentWorktreeName() unexpected error: %v", err)
+		}
+		if name != "" {
+			t.Errorf("CurrentWorktreeName() = %q, want empty string", name)
+		}
+	})
+
+	t.Run("getwd fails", func(t *testing.T) {
+		tmpDir := "/test/repo"
+		wm := &WorktreeManager{root: tmpDir}
+
+		getwdFn = func() (string, error) {
+			return "", errors.New("getwd failed")
+		}
+
+		name, err := wm.CurrentWorktreeName()
+		if err != nil {
+			t.Errorf("CurrentWorktreeName() unexpected error: %v", err)
+		}
+		if name != "" {
+			t.Errorf("CurrentWorktreeName() = %q, want empty string", name)
+		}
+	})
+}

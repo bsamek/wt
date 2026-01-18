@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+// getwdFn is replaceable for testing
+var getwdFn = os.Getwd
 
 // WorktreeManager provides centralized worktree path management
 type WorktreeManager struct {
@@ -64,4 +68,25 @@ func (wm *WorktreeManager) ClaudeDirExists() bool {
 func (wm *WorktreeManager) HookExists(hookRelPath string) bool {
 	_, err := os.Stat(wm.HookPath(hookRelPath))
 	return err == nil
+}
+
+// CurrentWorktreeName returns the worktree name if cwd is inside a worktree, empty string otherwise
+func (wm *WorktreeManager) CurrentWorktreeName() (string, error) {
+	cwd, err := getwdFn()
+	if err != nil {
+		return "", nil // Not an error, just can't detect
+	}
+
+	worktreesPath := wm.WorktreesPath()
+	if !strings.HasPrefix(cwd, worktreesPath+string(filepath.Separator)) {
+		return "", nil // Not inside .worktrees
+	}
+
+	// Extract worktree name: cwd is like /repo/.worktrees/foo or /repo/.worktrees/foo/subdir
+	// Since we've verified cwd starts with worktreesPath, Rel cannot fail
+	rel, _ := filepath.Rel(worktreesPath, cwd)
+
+	// Get first path component (the worktree name)
+	parts := strings.SplitN(rel, string(filepath.Separator), 2)
+	return parts[0], nil
 }

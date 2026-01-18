@@ -20,6 +20,14 @@ func TestUsageText(t *testing.T) {
 	if !bytes.Contains([]byte(text), []byte("--hook")) {
 		t.Error("usageText() missing --hook option")
 	}
+	// Verify remove shows optional name
+	if !bytes.Contains([]byte(text), []byte("wt remove [name]")) {
+		t.Error("usageText() missing 'wt remove [name]' line")
+	}
+	// Verify auto-detect is documented
+	if !bytes.Contains([]byte(text), []byte("auto-detects")) {
+		t.Error("usageText() missing auto-detect documentation")
+	}
 }
 
 func TestPrintUsage(t *testing.T) {
@@ -233,9 +241,11 @@ func TestParseArgs(t *testing.T) {
 			wantErrMsg: "branch name required",
 		},
 		{
-			name:       "remove without name",
-			args:       []string{"remove"},
-			wantErrMsg: "branch name required",
+			name:     "remove without name (auto-detect)",
+			args:     []string{"remove"},
+			wantCmd:  "remove",
+			wantName: "",
+			wantHook: DefaultHook,
 		},
 		{
 			name:       "extra argument",
@@ -388,6 +398,60 @@ func TestRun(t *testing.T) {
 		err := run([]string{"remove", "my-feature"})
 		if err == nil || err.Error() != "mock: not in git repo for remove" {
 			t.Errorf("run() error = %v, want 'mock: not in git repo for remove'", err)
+		}
+	})
+
+	t.Run("remove without name detects current worktree", func(t *testing.T) {
+		origGetwd := getwdFn
+		defer func() { getwdFn = origGetwd }()
+
+		tmpDir := t.TempDir()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+		gitCmdFn = func(dir string, args ...string) error {
+			return nil
+		}
+		// Simulate being inside a worktree
+		getwdFn = func() (string, error) {
+			return tmpDir + "/" + WorktreesDir + "/auto-detected", nil
+		}
+
+		err := run([]string{"remove"})
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+	})
+
+	t.Run("remove without name not inside worktree", func(t *testing.T) {
+		origGetwd := getwdFn
+		defer func() { getwdFn = origGetwd }()
+
+		tmpDir := t.TempDir()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+		// Simulate being outside worktree
+		getwdFn = func() (string, error) {
+			return "/some/other/dir", nil
+		}
+
+		err := run([]string{"remove"})
+		if err == nil || err.Error() != "not inside a worktree (specify branch name)" {
+			t.Errorf("run() error = %v, want 'not inside a worktree (specify branch name)'", err)
+		}
+	})
+
+	t.Run("remove without name git root error", func(t *testing.T) {
+		gitMainRootFn = func() (string, error) {
+			return "", errors.New("mock: not in git repo")
+		}
+
+		err := run([]string{"remove"})
+		if err == nil || err.Error() != "mock: not in git repo" {
+			t.Errorf("run() error = %v, want 'mock: not in git repo'", err)
 		}
 	})
 
