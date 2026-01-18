@@ -17,18 +17,20 @@ var (
 var exitFn = os.Exit
 
 // validCommands lists all valid command names
-var validCommands = []string{"create", "remove", "gha"}
+var validCommands = []string{"create", "remove", "gha", "completion", "__complete"}
 
 func usageText() string {
 	return `Usage: wt [options] <name>
        wt create [options] <name>
        wt remove <name>
        wt gha
+       wt completion <shell>
 
 Commands:
-  create    Create a new worktree with branch (default if no command given)
-  remove    Remove a worktree and its branch
-  gha       Monitor GitHub Actions status for current branch's PR
+  create      Create a new worktree with branch (default if no command given)
+  remove      Remove a worktree and its branch
+  gha         Monitor GitHub Actions status for current branch's PR
+  completion  Generate shell completion script (bash, zsh, fish)
 
 Options:
   --hook <path>    Custom hook script to run after create (default: .worktree-hook)
@@ -40,6 +42,7 @@ Examples:
   wt --hook setup.sh feat    Create worktree, run setup.sh as hook
   wt remove my-feature       Remove worktree and branch
   wt gha                     Wait for GHA checks on current branch's PR
+  wt completion bash         Generate bash completion script
 `
 }
 
@@ -126,6 +129,27 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 		return cmd, "", hookPath, nil
 	}
 
+	// completion command takes a shell name
+	if cmd == "completion" {
+		if idx >= len(args) {
+			return "", "", "", fmt.Errorf("shell name required (bash, zsh, fish)")
+		}
+		name = args[idx]
+		if idx+1 < len(args) {
+			return "", "", "", fmt.Errorf("unexpected argument: %s", args[idx+1])
+		}
+		return cmd, name, hookPath, nil
+	}
+
+	// __complete command takes a subcommand name
+	if cmd == "__complete" {
+		if idx >= len(args) {
+			return "", "", "", fmt.Errorf("subcommand required")
+		}
+		name = args[idx]
+		return cmd, name, hookPath, nil
+	}
+
 	// Remaining arg should be the name
 	if idx >= len(args) {
 		return "", "", "", fmt.Errorf("branch name required")
@@ -153,6 +177,13 @@ func run(args []string) error {
 		return remove(name)
 	case "gha":
 		return gha()
+	case "completion":
+		return completion(name, os.Stdout)
+	case "__complete":
+		if name == "remove" {
+			return completeWorktrees(os.Stdout)
+		}
+		return nil
 	default:
 		return create(name, hookPath)
 	}

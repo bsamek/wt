@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -41,6 +42,8 @@ func TestIsValidCommand(t *testing.T) {
 		{"create", "create", true},
 		{"remove", "remove", true},
 		{"gha", "gha", true},
+		{"completion", "completion", true},
+		{"__complete", "__complete", true},
 		{"invalid", "invalid", false},
 		{"empty", "", false},
 	}
@@ -256,6 +259,49 @@ func TestParseArgs(t *testing.T) {
 			args:       []string{"gha", "extra"},
 			wantErrMsg: "unexpected argument: extra",
 		},
+		{
+			name:     "completion command bash",
+			args:     []string{"completion", "bash"},
+			wantCmd:  "completion",
+			wantName: "bash",
+			wantHook: DefaultHook,
+		},
+		{
+			name:     "completion command zsh",
+			args:     []string{"completion", "zsh"},
+			wantCmd:  "completion",
+			wantName: "zsh",
+			wantHook: DefaultHook,
+		},
+		{
+			name:     "completion command fish",
+			args:     []string{"completion", "fish"},
+			wantCmd:  "completion",
+			wantName: "fish",
+			wantHook: DefaultHook,
+		},
+		{
+			name:       "completion without shell",
+			args:       []string{"completion"},
+			wantErrMsg: "shell name required (bash, zsh, fish)",
+		},
+		{
+			name:       "completion with extra arg",
+			args:       []string{"completion", "bash", "extra"},
+			wantErrMsg: "unexpected argument: extra",
+		},
+		{
+			name:     "__complete remove",
+			args:     []string{"__complete", "remove"},
+			wantCmd:  "__complete",
+			wantName: "remove",
+			wantHook: DefaultHook,
+		},
+		{
+			name:       "__complete without subcommand",
+			args:       []string{"__complete"},
+			wantErrMsg: "subcommand required",
+		},
 	}
 
 	for _, tt := range tests {
@@ -353,6 +399,41 @@ func TestRun(t *testing.T) {
 		err := run([]string{"gha"})
 		if err == nil || err.Error() != "mock: no PR found for current branch" {
 			t.Errorf("run() error = %v, want 'mock: no PR found for current branch'", err)
+		}
+	})
+
+	t.Run("completion command calls completion", func(t *testing.T) {
+		err := run([]string{"completion", "bash"})
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+	})
+
+	t.Run("completion command with invalid shell", func(t *testing.T) {
+		err := run([]string{"completion", "invalid"})
+		if err == nil || !strings.Contains(err.Error(), "unsupported shell") {
+			t.Errorf("run() error = %v, want error containing 'unsupported shell'", err)
+		}
+	})
+
+	t.Run("__complete remove calls completeWorktrees", func(t *testing.T) {
+		origListWorktrees := listWorktreesFn
+		defer func() { listWorktreesFn = origListWorktrees }()
+
+		listWorktreesFn = func() ([]string, error) {
+			return []string{"test-worktree"}, nil
+		}
+
+		err := run([]string{"__complete", "remove"})
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+	})
+
+	t.Run("__complete with other subcommand", func(t *testing.T) {
+		err := run([]string{"__complete", "create"})
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
 		}
 	})
 }

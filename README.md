@@ -31,6 +31,7 @@ wt [options] <name>
 wt create [options] <name>
 wt remove <name>
 wt gha
+wt completion <shell>
 ```
 
 ### Commands
@@ -40,6 +41,7 @@ wt gha
 | `create` | Create a new worktree with branch (default if no command given) |
 | `remove` | Remove a worktree and its branch |
 | `gha` | Monitor GitHub Actions status for current branch's PR |
+| `completion` | Generate shell completion script (bash, zsh, fish) |
 
 ### Options
 
@@ -56,6 +58,7 @@ wt create my-feature       # Same as above
 wt --hook setup.sh feat    # Create worktree, run setup.sh as hook
 wt remove my-feature       # Remove worktree and branch
 wt gha                     # Monitor GitHub Actions for current branch's PR
+wt completion bash         # Generate bash completion script
 ```
 
 ## How It Works
@@ -85,6 +88,38 @@ The `wt gha` command monitors the CI status for the current branch's pull reques
 - Exits with code 0 when all checks pass
 - Exits with code 1 if any checks fail, timeout occurs (60 min), or no PR exists
 - Requires the [GitHub CLI](https://cli.github.com/) (`gh`) to be installed and authenticated
+
+## Shell Completion
+
+`wt` supports tab completion for bash, zsh, and fish shells. Completions include command names, flags, and dynamic worktree name completion for `wt remove`.
+
+### Installation
+
+**Bash**
+
+```bash
+# Add to ~/.bashrc
+wt completion bash >> ~/.bashrc
+
+# Or load for current session only
+source <(wt completion bash)
+```
+
+**Zsh**
+
+```bash
+# Add to ~/.zshrc
+wt completion zsh >> ~/.zshrc
+
+# Or load for current session only
+source <(wt completion zsh)
+```
+
+**Fish**
+
+```bash
+wt completion fish > ~/.config/fish/completions/wt.fish
+```
 
 ## Development
 
