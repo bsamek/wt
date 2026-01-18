@@ -51,7 +51,7 @@ func create(name, hookPath string) error {
 func runHook(hookPath, worktreePath string) error {
 	cmd := exec.Command(hookPath)
 	cmd.Dir = worktreePath
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = os.Stderr // Redirect to stderr to keep stdout clean for worktree path
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
