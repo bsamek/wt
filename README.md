@@ -38,7 +38,15 @@ source /path/to/wt.sh
 source /path/to/wt.sh
 ```
 
+**Fish** (add to `~/.config/fish/config.fish` or copy to `~/.config/fish/functions/wt.fish`):
+```fish
+source /path/to/wt.fish
+```
+
 Alternatively, copy the wrapper function directly into your shell config:
+
+<details>
+<summary>Bash/Zsh</summary>
 
 ```bash
 wt() {
@@ -57,6 +65,27 @@ wt() {
     return $exit_code
 }
 ```
+</details>
+
+<details>
+<summary>Fish</summary>
+
+```fish
+function wt --description "Git worktree manager with auto-cd"
+    set -l wt_bin (command -v wt 2>/dev/null)
+    if test -z "$wt_bin"
+        echo "error: wt binary not found in PATH" >&2
+        return 1
+    end
+    set -l dir ($wt_bin $argv)
+    set -l exit_code $status
+    if test $exit_code -eq 0 -a -n "$dir" -a -d "$dir"
+        cd $dir
+    end
+    return $exit_code
+end
+```
+</details>
 
 ## Usage
 
