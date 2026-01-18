@@ -346,11 +346,11 @@ func TestParseArgs(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	// Save original functions and restore after test
-	origGitRoot := gitRootFn
+	origGitRoot := gitMainRootFn
 	origGitCmd := gitCmdFn
 	origGhPRView := ghPRViewFn
 	defer func() {
-		gitRootFn = origGitRoot
+		gitMainRootFn = origGitRoot
 		gitCmdFn = origGitCmd
 		ghPRViewFn = origGhPRView
 	}()
@@ -370,7 +370,7 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("create command calls create", func(t *testing.T) {
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return "", errors.New("mock: not in git repo")
 		}
 
@@ -381,7 +381,7 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("remove command calls remove", func(t *testing.T) {
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return "", errors.New("mock: not in git repo for remove")
 		}
 
@@ -443,11 +443,11 @@ func TestMainFunc(t *testing.T) {
 	// Save and restore original values
 	origArgs := os.Args
 	origExit := exitFn
-	origGitRoot := gitRootFn
+	origGitRoot := gitMainRootFn
 	defer func() {
 		os.Args = origArgs
 		exitFn = origExit
-		gitRootFn = origGitRoot
+		gitMainRootFn = origGitRoot
 	}()
 
 	tests := []struct {
@@ -485,7 +485,7 @@ func TestMainFunc(t *testing.T) {
 			}
 
 			// Mock gitRoot to return an error (not in git repo)
-			gitRootFn = func() (string, error) {
+			gitMainRootFn = func() (string, error) {
 				return "", errors.New("not in a git repository")
 			}
 
@@ -503,13 +503,13 @@ func TestMainFunc(t *testing.T) {
 func TestMainSuccess(t *testing.T) {
 	origArgs := os.Args
 	origExit := exitFn
-	origGitRoot := gitRootFn
+	origGitRoot := gitMainRootFn
 	origGitCmd := gitCmdFn
 	origStdout := os.Stdout
 	defer func() {
 		os.Args = origArgs
 		exitFn = origExit
-		gitRootFn = origGitRoot
+		gitMainRootFn = origGitRoot
 		gitCmdFn = origGitCmd
 		os.Stdout = origStdout
 	}()
@@ -523,7 +523,7 @@ func TestMainSuccess(t *testing.T) {
 		exitCalled = true
 	}
 
-	gitRootFn = func() (string, error) {
+	gitMainRootFn = func() (string, error) {
 		return tmpDir, nil
 	}
 	gitCmdFn = func(dir string, args ...string) error {

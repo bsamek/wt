@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os/exec"
 	"testing"
 )
@@ -61,6 +62,33 @@ func TestGitCmd(t *testing.T) {
 	})
 }
 
+func TestGitMainRoot(t *testing.T) {
+	// Save original function and restore after test
+	origGitMainRoot := gitMainRootFn
+	defer func() {
+		gitMainRootFn = origGitMainRoot
+	}()
+
+	t.Run("delegates to gitMainRootFn", func(t *testing.T) {
+		called := false
+		gitMainRootFn = func() (string, error) {
+			called = true
+			return "/test/main/path", nil
+		}
+
+		result, err := gitMainRoot()
+		if !called {
+			t.Error("gitMainRoot() did not call gitMainRootFn")
+		}
+		if err != nil {
+			t.Errorf("gitMainRoot() unexpected error: %v", err)
+		}
+		if result != "/test/main/path" {
+			t.Errorf("gitMainRoot() = %q, want %q", result, "/test/main/path")
+		}
+	})
+}
+
 func TestDefaultGitRoot(t *testing.T) {
 	t.Run("in git repo", func(t *testing.T) {
 		// Test that defaultGitRoot returns a valid path when run from a git repo
@@ -84,6 +112,53 @@ func TestDefaultGitRoot(t *testing.T) {
 		}
 		if err.Error() != "not in a git repository" {
 			t.Errorf("defaultGitRoot() error = %q, want %q", err.Error(), "not in a git repository")
+		}
+	})
+}
+
+func TestDefaultGitMainRoot(t *testing.T) {
+	t.Run("in git repo", func(t *testing.T) {
+		// Test that defaultGitMainRoot returns a valid path when run from a git repo
+		// (which the test itself runs from)
+		root, err := defaultGitMainRoot()
+		if err != nil {
+			t.Errorf("defaultGitMainRoot() unexpected error: %v", err)
+		}
+		if root == "" {
+			t.Error("defaultGitMainRoot() returned empty string")
+		}
+	})
+
+	t.Run("not in git repo", func(t *testing.T) {
+		// Set GIT_DIR to an invalid path to simulate not being in a git repo
+		t.Setenv("GIT_DIR", "/nonexistent/path")
+
+		_, err := defaultGitMainRoot()
+		if err == nil {
+			t.Error("defaultGitMainRoot() expected error when not in git repo")
+		}
+		if err.Error() != "not in a git repository" {
+			t.Errorf("defaultGitMainRoot() error = %q, want %q", err.Error(), "not in a git repository")
+		}
+	})
+
+	t.Run("filepath.Abs error", func(t *testing.T) {
+		// Save and restore original function
+		origFilepathAbs := filepathAbsFn
+		defer func() {
+			filepathAbsFn = origFilepathAbs
+		}()
+
+		filepathAbsFn = func(path string) (string, error) {
+			return "", errors.New("mock abs error")
+		}
+
+		_, err := defaultGitMainRoot()
+		if err == nil {
+			t.Error("defaultGitMainRoot() expected error when filepath.Abs fails")
+		}
+		if err.Error() != "failed to resolve git directory path" {
+			t.Errorf("defaultGitMainRoot() error = %q, want %q", err.Error(), "failed to resolve git directory path")
 		}
 	})
 }

@@ -11,16 +11,16 @@ import (
 
 func TestListWorktrees(t *testing.T) {
 	// Save original functions and restore after test
-	origGitRoot := gitRootFn
+	origGitRoot := gitMainRootFn
 	origListWorktrees := listWorktreesFn
 	defer func() {
-		gitRootFn = origGitRoot
+		gitMainRootFn = origGitRoot
 		listWorktreesFn = origListWorktrees
 	}()
 
 	t.Run("git root error", func(t *testing.T) {
 		listWorktreesFn = defaultListWorktrees
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return "", errors.New("not in a git repository")
 		}
 
@@ -33,7 +33,7 @@ func TestListWorktrees(t *testing.T) {
 	t.Run("no worktrees directory", func(t *testing.T) {
 		listWorktreesFn = defaultListWorktrees
 		tmpDir := t.TempDir()
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 
@@ -50,7 +50,7 @@ func TestListWorktrees(t *testing.T) {
 		listWorktreesFn = defaultListWorktrees
 		tmpDir := t.TempDir()
 		os.MkdirAll(filepath.Join(tmpDir, ".worktrees"), 0755)
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 
@@ -72,7 +72,7 @@ func TestListWorktrees(t *testing.T) {
 		// Create a file (should be ignored)
 		os.WriteFile(filepath.Join(worktreesDir, "not-a-worktree"), []byte{}, 0644)
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 
@@ -100,7 +100,7 @@ func TestListWorktrees(t *testing.T) {
 		// Create as file instead of directory to cause ReadDir error
 		os.WriteFile(worktreesDir, []byte{}, 0644)
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 

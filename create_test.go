@@ -12,15 +12,15 @@ import (
 
 func TestCreate(t *testing.T) {
 	// Save original functions and restore after test
-	origGitRoot := gitRootFn
+	origGitRoot := gitMainRootFn
 	origGitCmd := gitCmdFn
 	defer func() {
-		gitRootFn = origGitRoot
+		gitMainRootFn = origGitRoot
 		gitCmdFn = origGitCmd
 	}()
 
 	t.Run("git root error", func(t *testing.T) {
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return "", errors.New("not in a git repository")
 		}
 
@@ -33,7 +33,7 @@ func TestCreate(t *testing.T) {
 	t.Run("worktrees dir does not exist", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 
@@ -47,7 +47,7 @@ func TestCreate(t *testing.T) {
 		tmpDir := t.TempDir()
 		os.MkdirAll(filepath.Join(tmpDir, WorktreesDir), 0755)
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -67,7 +67,7 @@ func TestCreate(t *testing.T) {
 		tmpDir := t.TempDir()
 		os.MkdirAll(filepath.Join(tmpDir, WorktreesDir), 0755)
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -113,7 +113,7 @@ func TestCreate(t *testing.T) {
 		// Create the worktree directory (simulating git worktree add)
 		worktreePath := filepath.Join(worktreesDir, "test-branch")
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -161,7 +161,7 @@ func TestCreate(t *testing.T) {
 		// Create the worktree directory
 		worktreePath := filepath.Join(worktreesDir, "test-branch")
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -191,7 +191,7 @@ func TestCreate(t *testing.T) {
 
 		worktreePath := filepath.Join(worktreesDir, "test-branch")
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -235,7 +235,7 @@ func TestCreate(t *testing.T) {
 
 		worktreePath := filepath.Join(worktreesDir, "test-branch")
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -297,7 +297,7 @@ func TestCreate(t *testing.T) {
 
 		worktreePath := filepath.Join(worktreesDir, "test-branch")
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {

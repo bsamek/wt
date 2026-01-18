@@ -11,9 +11,10 @@ type WorktreeManager struct {
 	root string
 }
 
-// NewWorktreeManager creates a WorktreeManager after finding the git root
+// NewWorktreeManager creates a WorktreeManager after finding the main git root
+// Uses gitMainRoot() to always get the main repository root, even when run from a worktree
 func NewWorktreeManager() (*WorktreeManager, error) {
-	root, err := gitRoot()
+	root, err := gitMainRoot()
 	if err != nil {
 		return nil, err
 	}

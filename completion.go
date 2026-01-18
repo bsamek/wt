@@ -11,7 +11,7 @@ import (
 var listWorktreesFn = defaultListWorktrees
 
 func defaultListWorktrees() ([]string, error) {
-	root, err := gitRoot()
+	root, err := gitMainRoot()
 	if err != nil {
 		return nil, err
 	}

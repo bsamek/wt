@@ -12,17 +12,17 @@ import (
 
 func TestRemove(t *testing.T) {
 	// Save original functions and restore after test
-	origGitRoot := gitRootFn
+	origGitRoot := gitMainRootFn
 	origGitCmd := gitCmdFn
 	origGetwd := getwdFn
 	defer func() {
-		gitRootFn = origGitRoot
+		gitMainRootFn = origGitRoot
 		gitCmdFn = origGitCmd
 		getwdFn = origGetwd
 	}()
 
 	t.Run("git root error", func(t *testing.T) {
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return "", errors.New("not in a git repository")
 		}
 
@@ -35,7 +35,7 @@ func TestRemove(t *testing.T) {
 	t.Run("worktree remove fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -57,7 +57,7 @@ func TestRemove(t *testing.T) {
 	t.Run("branch delete fails", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -79,7 +79,7 @@ func TestRemove(t *testing.T) {
 	t.Run("success from outside worktree", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -116,7 +116,7 @@ func TestRemove(t *testing.T) {
 		tmpDir := t.TempDir()
 		worktreePath := filepath.Join(tmpDir, WorktreesDir, "test-branch")
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -154,7 +154,7 @@ func TestRemove(t *testing.T) {
 		worktreePath := filepath.Join(tmpDir, WorktreesDir, "test-branch")
 		subDir := filepath.Join(worktreePath, "src", "components")
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {
@@ -190,7 +190,7 @@ func TestRemove(t *testing.T) {
 	t.Run("getwd error is handled gracefully", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return tmpDir, nil
 		}
 		gitCmdFn = func(dir string, args ...string) error {

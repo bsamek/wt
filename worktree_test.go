@@ -9,13 +9,13 @@ import (
 
 func TestNewWorktreeManager(t *testing.T) {
 	// Save original function and restore after test
-	origGitRoot := gitRootFn
+	origGitMainRoot := gitMainRootFn
 	defer func() {
-		gitRootFn = origGitRoot
+		gitMainRootFn = origGitMainRoot
 	}()
 
 	t.Run("success", func(t *testing.T) {
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return "/test/repo", nil
 		}
 
@@ -32,7 +32,7 @@ func TestNewWorktreeManager(t *testing.T) {
 	})
 
 	t.Run("error", func(t *testing.T) {
-		gitRootFn = func() (string, error) {
+		gitMainRootFn = func() (string, error) {
 			return "", errors.New("not in a git repository")
 		}
 
