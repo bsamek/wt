@@ -24,6 +24,40 @@ Move the binary to a directory in your PATH.
 
 Download the executable for your platform from the [GitHub releases](https://github.com/bsamek/wt/releases) page and place it in a directory in your PATH.
 
+### Shell Integration (Recommended)
+
+To enable automatic directory changing after `wt create` (cd into the new worktree) and `wt remove` (cd back to root when removing current worktree), add the shell wrapper to your shell configuration:
+
+**Bash** (add to `~/.bashrc`):
+```bash
+source /path/to/wt.sh
+```
+
+**Zsh** (add to `~/.zshrc`):
+```bash
+source /path/to/wt.sh
+```
+
+Alternatively, copy the wrapper function directly into your shell config:
+
+```bash
+wt() {
+    local wt_bin
+    wt_bin=$(command -v wt 2>/dev/null)
+    if [[ -z "$wt_bin" ]]; then
+        echo "error: wt binary not found in PATH" >&2
+        return 1
+    fi
+    local dir
+    dir=$("$wt_bin" "$@")
+    local exit_code=$?
+    if [[ $exit_code -eq 0 && -n "$dir" && -d "$dir" ]]; then
+        cd "$dir" || return 1
+    fi
+    return $exit_code
+}
+```
+
 ## Usage
 
 ```
