@@ -33,6 +33,120 @@ func TestPrintUsage(t *testing.T) {
 	}
 }
 
+func TestIsValidCommand(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  string
+		want bool
+	}{
+		{"create", "create", true},
+		{"remove", "remove", true},
+		{"gha", "gha", true},
+		{"completion", "completion", true},
+		{"__complete", "__complete", true},
+		{"invalid", "invalid", false},
+		{"empty", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isValidCommand(tt.cmd); got != tt.want {
+				t.Errorf("isValidCommand(%q) = %v, want %v", tt.cmd, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsHelpRequested(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{"empty", []string{}, false},
+		{"-h", []string{"-h"}, true},
+		{"--help", []string{"--help"}, true},
+		{"help in middle", []string{"create", "--help", "foo"}, true},
+		{"no help", []string{"create", "foo"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isHelpRequested(tt.args); got != tt.want {
+				t.Errorf("isHelpRequested(%v) = %v, want %v", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantCmd string
+		wantIdx int
+	}{
+		{"empty", []string{}, "create", 0},
+		{"create", []string{"create", "foo"}, "create", 1},
+		{"remove", []string{"remove", "foo"}, "remove", 1},
+		{"gha", []string{"gha"}, "gha", 1},
+		{"implicit create", []string{"my-branch"}, "create", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd, idx := parseCommand(tt.args)
+			if cmd != tt.wantCmd {
+				t.Errorf("parseCommand() cmd = %q, want %q", cmd, tt.wantCmd)
+			}
+			if idx != tt.wantIdx {
+				t.Errorf("parseCommand() idx = %d, want %d", idx, tt.wantIdx)
+			}
+		})
+	}
+}
+
+func TestParseHookFlag(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		idx        int
+		wantIdx    int
+		wantHook   string
+		wantErrMsg string
+	}{
+		{"no hook", []string{"foo"}, 0, 0, DefaultHook, ""},
+		{"with hook", []string{"--hook", "setup.sh", "foo"}, 0, 2, "setup.sh", ""},
+		{"hook missing value", []string{"--hook"}, 0, 0, "", "--hook requires a path argument"},
+		{"unknown flag", []string{"-x", "foo"}, 0, 0, "", "unknown flag -x"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			idx, hook, err := parseHookFlag(tt.args, tt.idx, DefaultHook)
+
+			if tt.wantErrMsg != "" {
+				if err == nil || err.Error() != tt.wantErrMsg {
+					t.Errorf("parseHookFlag() error = %v, want %q", err, tt.wantErrMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("parseHookFlag() unexpected error: %v", err)
+				return
+			}
+
+			if idx != tt.wantIdx {
+				t.Errorf("parseHookFlag() idx = %d, want %d", idx, tt.wantIdx)
+			}
+			if hook != tt.wantHook {
+				t.Errorf("parseHookFlag() hook = %q, want %q", hook, tt.wantHook)
+			}
+		})
+	}
+}
+
 func TestParseArgs(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -68,21 +182,21 @@ func TestParseArgs(t *testing.T) {
 			args:     []string{"my-feature"},
 			wantCmd:  "create",
 			wantName: "my-feature",
-			wantHook: defaultHook,
+			wantHook: DefaultHook,
 		},
 		{
 			name:     "explicit create",
 			args:     []string{"create", "my-feature"},
 			wantCmd:  "create",
 			wantName: "my-feature",
-			wantHook: defaultHook,
+			wantHook: DefaultHook,
 		},
 		{
 			name:     "remove command",
 			args:     []string{"remove", "my-feature"},
 			wantCmd:  "remove",
 			wantName: "my-feature",
-			wantHook: defaultHook,
+			wantHook: DefaultHook,
 		},
 		{
 			name:     "create with hook",
@@ -138,7 +252,7 @@ func TestParseArgs(t *testing.T) {
 			args:     []string{"gha"},
 			wantCmd:  "gha",
 			wantName: "",
-			wantHook: defaultHook,
+			wantHook: DefaultHook,
 		},
 		{
 			name:       "gha command with extra arg",
@@ -150,21 +264,21 @@ func TestParseArgs(t *testing.T) {
 			args:     []string{"completion", "bash"},
 			wantCmd:  "completion",
 			wantName: "bash",
-			wantHook: defaultHook,
+			wantHook: DefaultHook,
 		},
 		{
 			name:     "completion command zsh",
 			args:     []string{"completion", "zsh"},
 			wantCmd:  "completion",
 			wantName: "zsh",
-			wantHook: defaultHook,
+			wantHook: DefaultHook,
 		},
 		{
 			name:     "completion command fish",
 			args:     []string{"completion", "fish"},
 			wantCmd:  "completion",
 			wantName: "fish",
-			wantHook: defaultHook,
+			wantHook: DefaultHook,
 		},
 		{
 			name:       "completion without shell",
@@ -181,7 +295,7 @@ func TestParseArgs(t *testing.T) {
 			args:     []string{"__complete", "remove"},
 			wantCmd:  "__complete",
 			wantName: "remove",
-			wantHook: defaultHook,
+			wantHook: DefaultHook,
 		},
 		{
 			name:       "__complete without subcommand",
@@ -400,7 +514,7 @@ func TestMainSuccess(t *testing.T) {
 
 	// Create temp dir with .worktrees
 	tmpDir := t.TempDir()
-	os.MkdirAll(tmpDir+"/.worktrees", 0755)
+	os.MkdirAll(tmpDir+"/"+WorktreesDir, 0755)
 
 	exitCalled := false
 	exitFn = func(code int) {

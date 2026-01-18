@@ -7,8 +7,6 @@ import (
 	"os"
 )
 
-const defaultHook = ".worktree-hook"
-
 // Sentinel errors for testing
 var (
 	errShowHelp     = errors.New("show help")
@@ -17,6 +15,9 @@ var (
 
 // exitFn is the exit function, replaceable for testing
 var exitFn = os.Exit
+
+// validCommands lists all valid command names
+var validCommands = []string{"create", "remove", "gha", "completion", "__complete"}
 
 func usageText() string {
 	return `Usage: wt [options] <name>
@@ -49,100 +50,116 @@ func printUsage(w io.Writer) {
 	fmt.Fprint(w, usageText())
 }
 
+// isValidCommand checks if a string is a valid command name
+func isValidCommand(s string) bool {
+	for _, cmd := range validCommands {
+		if s == cmd {
+			return true
+		}
+	}
+	return false
+}
+
+// isHelpRequested checks if any argument is a help flag
+func isHelpRequested(args []string) bool {
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			return true
+		}
+	}
+	return false
+}
+
+// parseCommand extracts the command from arguments, defaulting to "create"
+func parseCommand(args []string) (cmd string, startIdx int) {
+	if len(args) == 0 {
+		return "create", 0
+	}
+	if isValidCommand(args[0]) {
+		return args[0], 1
+	}
+	return "create", 0
+}
+
+// parseHookFlag parses the --hook flag from arguments starting at idx
+// Returns the new index, hook path, and any error
+func parseHookFlag(args []string, idx int, defaultHook string) (int, string, error) {
+	hookPath := defaultHook
+
+	for idx < len(args) {
+		if args[idx] == "--hook" {
+			if idx+1 >= len(args) {
+				return 0, "", fmt.Errorf("--hook requires a path argument")
+			}
+			hookPath = args[idx+1]
+			idx += 2
+		} else if len(args[idx]) > 0 && args[idx][0] == '-' {
+			return 0, "", fmt.Errorf("unknown flag %s", args[idx])
+		} else {
+			break
+		}
+	}
+
+	return idx, hookPath, nil
+}
+
 // parseArgs parses command line arguments and returns (command, name, hookPath, error)
 func parseArgs(args []string) (cmd string, name string, hookPath string, err error) {
 	if len(args) == 0 {
 		return "", "", "", errShowHelpFail
 	}
 
-	// Check for help flag anywhere
-	for _, arg := range args {
-		if arg == "-h" || arg == "--help" {
-			return "", "", "", errShowHelp
-		}
+	if isHelpRequested(args) {
+		return "", "", "", errShowHelp
 	}
 
-	// Default values
-	cmd = "create"
-	hookPath = defaultHook
+	cmd, idx := parseCommand(args)
 
-	i := 0
-
-	// Check if first arg is a command
-	if len(args) > 0 {
-		switch args[0] {
-		case "create":
-			cmd = "create"
-			i++
-		case "remove":
-			cmd = "remove"
-			i++
-		case "gha":
-			cmd = "gha"
-			i++
-		case "completion":
-			cmd = "completion"
-			i++
-		case "__complete":
-			cmd = "__complete"
-			i++
-		}
-	}
-
-	// Parse flags
-	for i < len(args) {
-		if args[i] == "--hook" {
-			if i+1 >= len(args) {
-				return "", "", "", fmt.Errorf("--hook requires a path argument")
-			}
-			hookPath = args[i+1]
-			i += 2
-		} else if len(args[i]) > 0 && args[i][0] == '-' {
-			return "", "", "", fmt.Errorf("unknown flag %s", args[i])
-		} else {
-			break
-		}
+	// Parse hook flag
+	idx, hookPath, err = parseHookFlag(args, idx, DefaultHook)
+	if err != nil {
+		return "", "", "", err
 	}
 
 	// gha command takes no additional arguments
 	if cmd == "gha" {
-		if i < len(args) {
-			return "", "", "", fmt.Errorf("unexpected argument: %s", args[i])
+		if idx < len(args) {
+			return "", "", "", fmt.Errorf("unexpected argument: %s", args[idx])
 		}
 		return cmd, "", hookPath, nil
 	}
 
 	// completion command takes a shell name
 	if cmd == "completion" {
-		if i >= len(args) {
+		if idx >= len(args) {
 			return "", "", "", fmt.Errorf("shell name required (bash, zsh, fish)")
 		}
-		name = args[i]
-		if i+1 < len(args) {
-			return "", "", "", fmt.Errorf("unexpected argument: %s", args[i+1])
+		name = args[idx]
+		if idx+1 < len(args) {
+			return "", "", "", fmt.Errorf("unexpected argument: %s", args[idx+1])
 		}
 		return cmd, name, hookPath, nil
 	}
 
 	// __complete command takes a subcommand name
 	if cmd == "__complete" {
-		if i >= len(args) {
+		if idx >= len(args) {
 			return "", "", "", fmt.Errorf("subcommand required")
 		}
-		name = args[i]
+		name = args[idx]
 		return cmd, name, hookPath, nil
 	}
 
 	// Remaining arg should be the name
-	if i >= len(args) {
+	if idx >= len(args) {
 		return "", "", "", fmt.Errorf("branch name required")
 	}
 
-	name = args[i]
+	name = args[idx]
 
 	// Validate no extra args
-	if i+1 < len(args) {
-		return "", "", "", fmt.Errorf("unexpected argument: %s", args[i+1])
+	if idx+1 < len(args) {
+		return "", "", "", fmt.Errorf("unexpected argument: %s", args[idx+1])
 	}
 
 	return cmd, name, hookPath, nil
