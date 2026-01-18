@@ -23,11 +23,13 @@ func usageText() string {
        wt create [options] <name>
        wt remove <name>
        wt gha
+       wt completion <shell>
 
 Commands:
-  create    Create a new worktree with branch (default if no command given)
-  remove    Remove a worktree and its branch
-  gha       Monitor GitHub Actions status for current branch's PR
+  create      Create a new worktree with branch (default if no command given)
+  remove      Remove a worktree and its branch
+  gha         Monitor GitHub Actions status for current branch's PR
+  completion  Generate shell completion script (bash, zsh, fish)
 
 Options:
   --hook <path>    Custom hook script to run after create (default: .worktree-hook)
@@ -39,6 +41,7 @@ Examples:
   wt --hook setup.sh feat    Create worktree, run setup.sh as hook
   wt remove my-feature       Remove worktree and branch
   wt gha                     Wait for GHA checks on current branch's PR
+  wt completion bash         Generate bash completion script
 `
 }
 
@@ -77,6 +80,12 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 		case "gha":
 			cmd = "gha"
 			i++
+		case "completion":
+			cmd = "completion"
+			i++
+		case "__complete":
+			cmd = "__complete"
+			i++
 		}
 	}
 
@@ -101,6 +110,27 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 			return "", "", "", fmt.Errorf("unexpected argument: %s", args[i])
 		}
 		return cmd, "", hookPath, nil
+	}
+
+	// completion command takes a shell name
+	if cmd == "completion" {
+		if i >= len(args) {
+			return "", "", "", fmt.Errorf("shell name required (bash, zsh, fish)")
+		}
+		name = args[i]
+		if i+1 < len(args) {
+			return "", "", "", fmt.Errorf("unexpected argument: %s", args[i+1])
+		}
+		return cmd, name, hookPath, nil
+	}
+
+	// __complete command takes a subcommand name
+	if cmd == "__complete" {
+		if i >= len(args) {
+			return "", "", "", fmt.Errorf("subcommand required")
+		}
+		name = args[i]
+		return cmd, name, hookPath, nil
 	}
 
 	// Remaining arg should be the name
@@ -130,6 +160,13 @@ func run(args []string) error {
 		return remove(name)
 	case "gha":
 		return gha()
+	case "completion":
+		return completion(name, os.Stdout)
+	case "__complete":
+		if name == "remove" {
+			return completeWorktrees(os.Stdout)
+		}
+		return nil
 	default:
 		return create(name, hookPath)
 	}
