@@ -3,6 +3,7 @@ wt
 
 # Coverage
 coverage.out
+coverage.html
 
 # Claude (no trailing slash to also match symlinks)
 .claude
