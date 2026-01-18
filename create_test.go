@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,9 +74,27 @@ func TestCreate(t *testing.T) {
 			return nil
 		}
 
+		// Capture stdout
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		err := create("test-branch", DefaultHook)
+
+		w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := strings.TrimSpace(buf.String())
+
 		if err != nil {
 			t.Errorf("create() unexpected error: %v", err)
+		}
+
+		expectedPath := filepath.Join(tmpDir, WorktreesDir, "test-branch")
+		if output != expectedPath {
+			t.Errorf("create() stdout = %q, want %q", output, expectedPath)
 		}
 	})
 
@@ -104,9 +124,25 @@ func TestCreate(t *testing.T) {
 			return nil
 		}
 
+		// Capture stdout
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		err = create("test-branch", DefaultHook)
+
+		w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := strings.TrimSpace(buf.String())
+
 		if err != nil {
 			t.Errorf("create() unexpected error: %v", err)
+		}
+		if output != worktreePath {
+			t.Errorf("create() stdout = %q, want %q", output, worktreePath)
 		}
 	})
 
@@ -165,9 +201,25 @@ func TestCreate(t *testing.T) {
 			return nil
 		}
 
+		// Capture stdout
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		err = create("test-branch", "custom-hook.sh")
+
+		w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := strings.TrimSpace(buf.String())
+
 		if err != nil {
 			t.Errorf("create() unexpected error: %v", err)
+		}
+		if output != worktreePath {
+			t.Errorf("create() stdout = %q, want %q", output, worktreePath)
 		}
 	})
 
@@ -193,9 +245,25 @@ func TestCreate(t *testing.T) {
 			return nil
 		}
 
+		// Capture stdout
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		err := create("test-branch", DefaultHook)
+
+		w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := strings.TrimSpace(buf.String())
+
 		if err != nil {
 			t.Errorf("create() unexpected error: %v", err)
+		}
+		if output != worktreePath {
+			t.Errorf("create() stdout = %q, want %q", output, worktreePath)
 		}
 
 		// Verify symlink was created

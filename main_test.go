@@ -505,11 +505,13 @@ func TestMainSuccess(t *testing.T) {
 	origExit := exitFn
 	origGitRoot := gitRootFn
 	origGitCmd := gitCmdFn
+	origStdout := os.Stdout
 	defer func() {
 		os.Args = origArgs
 		exitFn = origExit
 		gitRootFn = origGitRoot
 		gitCmdFn = origGitCmd
+		os.Stdout = origStdout
 	}()
 
 	// Create temp dir with .worktrees
@@ -528,8 +530,15 @@ func TestMainSuccess(t *testing.T) {
 		return nil
 	}
 
+	// Capture stdout to prevent output during test
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
 	os.Args = []string{"wt", "test-branch"}
 	main()
+
+	w.Close()
+	r.Close()
 
 	if exitCalled {
 		t.Error("main() should not call exit on success")
