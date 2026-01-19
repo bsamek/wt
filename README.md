@@ -38,10 +38,12 @@ source /path/to/wt.sh
 source /path/to/wt.sh
 ```
 
-**Fish** (add to `~/.config/fish/config.fish` or copy to `~/.config/fish/functions/wt.fish`):
+**Fish** (copy to functions directory):
 ```fish
-source /path/to/wt.fish
+cp /path/to/wt.fish ~/.config/fish/functions/wt.fish
 ```
+
+**Updating:** When upgrading `wt`, re-run the installation command above to get the latest shell wrapper.
 
 Alternatively, copy the wrapper function directly into your shell config:
 
