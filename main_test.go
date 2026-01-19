@@ -55,6 +55,7 @@ func TestIsValidCommand(t *testing.T) {
 		{"create", "create", true},
 		{"remove", "remove", true},
 		{"jump", "jump", true},
+		{"list", "list", true},
 		{"completion", "completion", true},
 		{"__complete", "__complete", true},
 		{"invalid", "invalid", false},
@@ -308,6 +309,18 @@ func TestParseArgs(t *testing.T) {
 			wantErrMsg: "unexpected argument: extra",
 		},
 		{
+			name:     "list command no args",
+			args:     []string{"list"},
+			wantCmd:  "list",
+			wantName: "",
+			wantHook: DefaultHook,
+		},
+		{
+			name:       "list command with extra arg",
+			args:       []string{"list", "extra"},
+			wantErrMsg: "unexpected argument: extra",
+		},
+		{
 			name:     "completion command bash",
 			args:     []string{"completion", "bash"},
 			wantCmd:  "completion",
@@ -526,6 +539,34 @@ func TestRun(t *testing.T) {
 		}
 
 		err := run([]string{"remove"})
+		if err == nil || err.Error() != "mock: not in git repo" {
+			t.Errorf("run() error = %v, want 'mock: not in git repo'", err)
+		}
+	})
+
+	t.Run("list command calls list", func(t *testing.T) {
+		origListWorktrees := listWorktreesFn
+		defer func() { listWorktreesFn = origListWorktrees }()
+
+		listWorktreesFn = func() ([]string, error) {
+			return []string{"feature-a", "feature-b"}, nil
+		}
+
+		err := run([]string{"list"})
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+	})
+
+	t.Run("list command with error", func(t *testing.T) {
+		origListWorktrees := listWorktreesFn
+		defer func() { listWorktreesFn = origListWorktrees }()
+
+		listWorktreesFn = func() ([]string, error) {
+			return nil, errors.New("mock: not in git repo")
+		}
+
+		err := run([]string{"list"})
 		if err == nil || err.Error() != "mock: not in git repo" {
 			t.Errorf("run() error = %v, want 'mock: not in git repo'", err)
 		}
