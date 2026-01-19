@@ -90,6 +90,7 @@ end
 ## Usage
 
 ```
+wt
 wt [options] <name>
 wt create [options] <name>
 wt remove [name]
@@ -101,7 +102,8 @@ wt completion <shell>
 
 | Command | Description |
 |---------|-------------|
-| `create` | Create a new worktree with branch (default if no command given) |
+| (no command) | Navigate to repository root (if inside a worktree) |
+| `create` | Create a new worktree with branch (default if name given) |
 | `remove` | Remove a worktree and its branch (auto-detects if inside worktree) |
 | `gha` | Monitor GitHub Actions status for current branch's PR |
 | `completion` | Generate shell completion script (bash, zsh, fish) |
@@ -116,6 +118,7 @@ wt completion <shell>
 ### Examples
 
 ```bash
+wt                         # Navigate to repository root (from worktree)
 wt my-feature              # Create worktree for 'my-feature' branch
 wt create my-feature       # Same as above
 wt --hook setup.sh feat    # Create worktree, run setup.sh as hook
