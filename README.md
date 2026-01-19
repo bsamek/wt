@@ -51,11 +51,17 @@ Alternatively, copy the wrapper function directly into your shell config:
 ```bash
 wt() {
     local wt_bin
-    wt_bin=$(command -v wt 2>/dev/null)
+    wt_bin=$(type -P wt 2>/dev/null)
     if [[ -z "$wt_bin" ]]; then
         echo "error: wt binary not found in PATH" >&2
         return 1
     fi
+    case "$1" in
+        completion|__complete)
+            "$wt_bin" "$@"
+            return $?
+            ;;
+    esac
     local dir
     dir=$("$wt_bin" "$@")
     local exit_code=$?
@@ -76,6 +82,13 @@ function wt --description "Git worktree manager with auto-cd"
     if test -z "$wt_bin"
         echo "error: wt binary not found in PATH" >&2
         return 1
+    end
+    if test (count $argv) -gt 0
+        switch $argv[1]
+            case completion __complete
+                $wt_bin $argv
+                return $status
+        end
     end
     set -l dir ($wt_bin $argv)
     set -l exit_code $status

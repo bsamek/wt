@@ -8,13 +8,21 @@
 #   source /path/to/wt.sh
 
 wt() {
-    # Find the real wt binary
+    # Find the real wt binary (use type -P to bypass the function)
     local wt_bin
-    wt_bin=$(command -v wt 2>/dev/null)
+    wt_bin=$(type -P wt 2>/dev/null)
     if [[ -z "$wt_bin" ]]; then
         echo "error: wt binary not found in PATH" >&2
         return 1
     fi
+
+    # Pass through commands that produce non-directory output
+    case "$1" in
+        completion|__complete)
+            "$wt_bin" "$@"
+            return $?
+            ;;
+    esac
 
     # Run wt and capture stdout (the directory path)
     local dir
