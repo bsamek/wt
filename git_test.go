@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 )
 
@@ -91,14 +93,43 @@ func TestGitMainRoot(t *testing.T) {
 
 func TestDefaultGitRoot(t *testing.T) {
 	t.Run("in git repo", func(t *testing.T) {
-		// Test that defaultGitRoot returns a valid path when run from a git repo
-		// (which the test itself runs from)
+		// Create a temporary git repo to test defaultGitRoot
+		// This ensures the test works even when run from a bare repository
+		tmpDir := t.TempDir()
+
+		// Initialize a git repo
+		initCmd := exec.Command("git", "init")
+		initCmd.Dir = tmpDir
+		if err := initCmd.Run(); err != nil {
+			t.Skipf("git init failed: %v", err)
+		}
+
+		// Save original directory and change to temp repo
+		origDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("failed to get current directory: %v", err)
+		}
+		if err := os.Chdir(tmpDir); err != nil {
+			t.Fatalf("failed to change to temp directory: %v", err)
+		}
+		defer func() {
+			if err := os.Chdir(origDir); err != nil {
+				t.Errorf("failed to restore directory: %v", err)
+			}
+		}()
+
 		root, err := defaultGitRoot()
 		if err != nil {
 			t.Errorf("defaultGitRoot() unexpected error: %v", err)
 		}
 		if root == "" {
 			t.Error("defaultGitRoot() returned empty string")
+		}
+		// Resolve symlinks for comparison (macOS /var -> /private/var)
+		expectedDir, _ := filepath.EvalSymlinks(tmpDir)
+		actualDir, _ := filepath.EvalSymlinks(root)
+		if actualDir != expectedDir {
+			t.Errorf("defaultGitRoot() = %q, want %q", actualDir, expectedDir)
 		}
 	})
 
