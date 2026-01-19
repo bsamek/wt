@@ -117,6 +117,7 @@ wt <command> [options] [args]
 | `jump` | Jump to a worktree or repository root |
 | `create` | Create a new worktree with branch |
 | `remove` | Remove a worktree and its branch (auto-detects if inside worktree) |
+| `list` | List all worktrees |
 | `gha` | Monitor GitHub Actions status for current branch's PR |
 | `completion` | Generate shell completion script (bash, zsh, fish) |
 
@@ -136,6 +137,7 @@ wt create my-feature       # Create worktree for 'my-feature' branch
 wt create --hook setup.sh feat    # Create worktree, run setup.sh as hook
 wt remove my-feature       # Remove worktree and branch
 wt remove                  # Remove current worktree (when inside one)
+wt list                    # List all worktrees
 wt gha                     # Monitor GitHub Actions for current branch's PR
 wt completion bash         # Generate bash completion script
 ```
