@@ -56,7 +56,6 @@ func TestIsValidCommand(t *testing.T) {
 		{"remove", "remove", true},
 		{"jump", "jump", true},
 		{"list", "list", true},
-		{"gha", "gha", true},
 		{"completion", "completion", true},
 		{"__complete", "__complete", true},
 		{"invalid", "invalid", false},
@@ -106,7 +105,6 @@ func TestParseCommand(t *testing.T) {
 		{"create", []string{"create", "foo"}, "create", 1, ""},
 		{"remove", []string{"remove", "foo"}, "remove", 1, ""},
 		{"jump", []string{"jump"}, "jump", 1, ""},
-		{"gha", []string{"gha"}, "gha", 1, ""},
 		{"unknown command", []string{"my-branch"}, "", 0, "unknown command: my-branch"},
 		{"unknown with args", []string{"foo", "bar"}, "", 0, "unknown command: foo"},
 	}
@@ -311,18 +309,6 @@ func TestParseArgs(t *testing.T) {
 			wantErrMsg: "unexpected argument: extra",
 		},
 		{
-			name:     "gha command no args",
-			args:     []string{"gha"},
-			wantCmd:  "gha",
-			wantName: "",
-			wantHook: DefaultHook,
-		},
-		{
-			name:       "gha command with extra arg",
-			args:       []string{"gha", "extra"},
-			wantErrMsg: "unexpected argument: extra",
-		},
-		{
 			name:     "list command no args",
 			args:     []string{"list"},
 			wantCmd:  "list",
@@ -423,11 +409,9 @@ func TestRun(t *testing.T) {
 	// Save original functions and restore after test
 	origGitRoot := gitMainRootFn
 	origGitCmd := gitCmdFn
-	origGhPRView := ghPRViewFn
 	defer func() {
 		gitMainRootFn = origGitRoot
 		gitCmdFn = origGitCmd
-		ghPRViewFn = origGhPRView
 	}()
 
 	t.Run("no args shows help", func(t *testing.T) {
@@ -557,17 +541,6 @@ func TestRun(t *testing.T) {
 		err := run([]string{"remove"})
 		if err == nil || err.Error() != "mock: not in git repo" {
 			t.Errorf("run() error = %v, want 'mock: not in git repo'", err)
-		}
-	})
-
-	t.Run("gha command calls gha", func(t *testing.T) {
-		ghPRViewFn = func() (*PRStatus, error) {
-			return nil, errors.New("mock: no PR found for current branch")
-		}
-
-		err := run([]string{"gha"})
-		if err == nil || err.Error() != "mock: no PR found for current branch" {
-			t.Errorf("run() error = %v, want 'mock: no PR found for current branch'", err)
 		}
 	})
 
