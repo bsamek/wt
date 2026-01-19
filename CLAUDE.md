@@ -1,2 +1,3 @@
 - Coverage is required to be 100% by CI and the pre-commit hook. Please add tests for all new features.
 - Please add documentation to README.md for all new features.
+- When asked to release a new version, use `scripts/release.sh`. Prompt the user first to determine whether to release a major, minor, or patch version (we use semver).
