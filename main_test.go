@@ -33,6 +33,10 @@ func TestUsageText(t *testing.T) {
 	if !bytes.Contains([]byte(text), []byte("Jump to a worktree")) {
 		t.Error("usageText() missing 'Jump to a worktree' text")
 	}
+	// Verify version command is documented
+	if !bytes.Contains([]byte(text), []byte("version")) {
+		t.Error("usageText() missing 'version' command")
+	}
 }
 
 func TestPrintUsage(t *testing.T) {
@@ -57,6 +61,7 @@ func TestIsValidCommand(t *testing.T) {
 		{"jump", "jump", true},
 		{"list", "list", true},
 		{"completion", "completion", true},
+		{"version", "version", true},
 		{"__complete", "__complete", true},
 		{"invalid", "invalid", false},
 		{"empty", "", false},
@@ -363,6 +368,18 @@ func TestParseArgs(t *testing.T) {
 			args:       []string{"__complete"},
 			wantErrMsg: "subcommand required",
 		},
+		{
+			name:     "version command",
+			args:     []string{"version"},
+			wantCmd:  "version",
+			wantName: "",
+			wantHook: DefaultHook,
+		},
+		{
+			name:       "version command with extra arg",
+			args:       []string{"version", "extra"},
+			wantErrMsg: "unexpected argument: extra",
+		},
 	}
 
 	for _, tt := range tests {
@@ -620,6 +637,25 @@ func TestRun(t *testing.T) {
 			t.Errorf("run() unexpected error: %v", err)
 		}
 	})
+
+	t.Run("version command", func(t *testing.T) {
+		err := run([]string{"version"})
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+	})
+}
+
+func TestVersionFunc(t *testing.T) {
+	var buf bytes.Buffer
+	err := version(&buf)
+	if err != nil {
+		t.Errorf("version() returned error: %v", err)
+	}
+	output := buf.String()
+	if output != Version+"\n" {
+		t.Errorf("version() = %q, want %q", output, Version+"\n")
+	}
 }
 
 // TestMainFunc tests the main() function by mocking exitFn and os.Args

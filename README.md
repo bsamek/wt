@@ -119,6 +119,7 @@ wt <command> [options] [args]
 | `remove` | Remove a worktree and its branch (auto-detects if inside worktree) |
 | `list` | List all worktrees |
 | `completion` | Generate shell completion script (bash, zsh, fish) |
+| `version` | Print version information |
 
 ### Options
 
@@ -138,6 +139,7 @@ wt remove my-feature       # Remove worktree and branch
 wt remove                  # Remove current worktree (when inside one)
 wt list                    # List all worktrees
 wt completion bash         # Generate bash completion script
+wt version                 # Print version information
 ```
 
 ## How It Works
