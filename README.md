@@ -114,7 +114,7 @@ wt <command> [options] [args]
 
 | Command | Description |
 |---------|-------------|
-| `root` | Navigate to repository root |
+| `jump` | Jump to a worktree or repository root |
 | `create` | Create a new worktree with branch |
 | `remove` | Remove a worktree and its branch (auto-detects if inside worktree) |
 | `gha` | Monitor GitHub Actions status for current branch's PR |
@@ -130,7 +130,8 @@ wt <command> [options] [args]
 ### Examples
 
 ```bash
-wt root                    # Navigate to repository root
+wt jump                    # Navigate to repository root (from worktree)
+wt jump my-feature         # Jump to 'my-feature' worktree
 wt create my-feature       # Create worktree for 'my-feature' branch
 wt create --hook setup.sh feat    # Create worktree, run setup.sh as hook
 wt remove my-feature       # Remove worktree and branch
@@ -169,7 +170,7 @@ The `wt gha` command monitors the CI status for the current branch's pull reques
 
 ## Shell Completion
 
-`wt` supports tab completion for bash, zsh, and fish shells. Completions include command names, flags, and dynamic worktree name completion for `wt remove`.
+`wt` supports tab completion for bash, zsh, and fish shells. Completions include command names, flags, and dynamic worktree name completion for `wt jump` and `wt remove`.
 
 ### Installation
 

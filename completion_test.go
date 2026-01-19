@@ -125,8 +125,8 @@ func TestCompletion(t *testing.T) {
 		if !strings.Contains(output, "complete -F _wt_completions wt") {
 			t.Error("bash completion missing complete command")
 		}
-		if !strings.Contains(output, "__complete remove") {
-			t.Error("bash completion missing dynamic worktree completion")
+		if !strings.Contains(output, "__complete jump") {
+			t.Error("bash completion missing dynamic worktree completion for jump")
 		}
 	})
 
@@ -143,8 +143,8 @@ func TestCompletion(t *testing.T) {
 		if !strings.Contains(output, "_wt_worktrees") {
 			t.Error("zsh completion missing _wt_worktrees function")
 		}
-		if !strings.Contains(output, "__complete remove") {
-			t.Error("zsh completion missing dynamic worktree completion")
+		if !strings.Contains(output, "__complete jump") {
+			t.Error("zsh completion missing dynamic worktree completion for jump")
 		}
 	})
 
@@ -161,8 +161,8 @@ func TestCompletion(t *testing.T) {
 		if !strings.Contains(output, "complete -c wt") {
 			t.Error("fish completion missing complete command")
 		}
-		if !strings.Contains(output, "__complete remove") {
-			t.Error("fish completion missing dynamic worktree completion")
+		if !strings.Contains(output, "__complete jump") {
+			t.Error("fish completion missing dynamic worktree completion for jump")
 		}
 	})
 

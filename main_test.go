@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -24,13 +25,13 @@ func TestUsageText(t *testing.T) {
 	if !bytes.Contains([]byte(text), []byte("auto-detects")) {
 		t.Error("usageText() missing auto-detect documentation")
 	}
-	// Verify root command is documented
-	if !bytes.Contains([]byte(text), []byte("root")) {
-		t.Error("usageText() missing 'root' command")
+	// Verify jump command is documented
+	if !bytes.Contains([]byte(text), []byte("jump")) {
+		t.Error("usageText() missing 'jump' command")
 	}
-	// Verify root navigation example
-	if !bytes.Contains([]byte(text), []byte("Navigate to repository root")) {
-		t.Error("usageText() missing 'Navigate to repository root' text")
+	// Verify jump navigation example
+	if !bytes.Contains([]byte(text), []byte("Jump to a worktree")) {
+		t.Error("usageText() missing 'Jump to a worktree' text")
 	}
 }
 
@@ -53,7 +54,7 @@ func TestIsValidCommand(t *testing.T) {
 	}{
 		{"create", "create", true},
 		{"remove", "remove", true},
-		{"root", "root", true},
+		{"jump", "jump", true},
 		{"gha", "gha", true},
 		{"completion", "completion", true},
 		{"__complete", "__complete", true},
@@ -103,7 +104,7 @@ func TestParseCommand(t *testing.T) {
 		{"empty", []string{}, "", 0, ""},
 		{"create", []string{"create", "foo"}, "create", 1, ""},
 		{"remove", []string{"remove", "foo"}, "remove", 1, ""},
-		{"root", []string{"root"}, "root", 1, ""},
+		{"jump", []string{"jump"}, "jump", 1, ""},
 		{"gha", []string{"gha"}, "gha", 1, ""},
 		{"unknown command", []string{"my-branch"}, "", 0, "unknown command: my-branch"},
 		{"unknown with args", []string{"foo", "bar"}, "", 0, "unknown command: foo"},
@@ -290,15 +291,22 @@ func TestParseArgs(t *testing.T) {
 			wantErrMsg: "--hook requires a path argument",
 		},
 		{
-			name:     "root command",
-			args:     []string{"root"},
-			wantCmd:  "root",
+			name:     "jump command no args",
+			args:     []string{"jump"},
+			wantCmd:  "jump",
 			wantName: "",
 			wantHook: DefaultHook,
 		},
 		{
-			name:       "root command with extra arg",
-			args:       []string{"root", "extra"},
+			name:     "jump command with name",
+			args:     []string{"jump", "my-feature"},
+			wantCmd:  "jump",
+			wantName: "my-feature",
+			wantHook: DefaultHook,
+		},
+		{
+			name:       "jump command with extra arg",
+			args:       []string{"jump", "my-feature", "extra"},
 			wantErrMsg: "unexpected argument: extra",
 		},
 		{
@@ -416,7 +424,7 @@ func TestRun(t *testing.T) {
 		}
 	})
 
-	t.Run("root command runs root", func(t *testing.T) {
+	t.Run("jump command runs jump", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		origGetwd := getwdFn
 		defer func() { getwdFn = origGetwd }()
@@ -428,7 +436,22 @@ func TestRun(t *testing.T) {
 			return "/some/other/dir", nil
 		}
 
-		err := run([]string{"root"})
+		err := run([]string{"jump"})
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+	})
+
+	t.Run("jump command with name", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		worktreesDir := filepath.Join(tmpDir, WorktreesDir)
+		os.MkdirAll(filepath.Join(worktreesDir, "my-feature"), 0755)
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+
+		err := run([]string{"jump", "my-feature"})
 		if err != nil {
 			t.Errorf("run() unexpected error: %v", err)
 		}
@@ -558,6 +581,20 @@ func TestRun(t *testing.T) {
 		}
 
 		err := run([]string{"__complete", "remove"})
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+	})
+
+	t.Run("__complete jump calls completeWorktrees", func(t *testing.T) {
+		origListWorktrees := listWorktreesFn
+		defer func() { listWorktreesFn = origListWorktrees }()
+
+		listWorktreesFn = func() ([]string, error) {
+			return []string{"test-worktree"}, nil
+		}
+
+		err := run([]string{"__complete", "jump"})
 		if err != nil {
 			t.Errorf("run() unexpected error: %v", err)
 		}

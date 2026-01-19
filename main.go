@@ -14,13 +14,13 @@ var errShowHelp = errors.New("show help")
 var exitFn = os.Exit
 
 // validCommands lists all valid command names
-var validCommands = []string{"create", "remove", "root", "gha", "completion", "__complete"}
+var validCommands = []string{"create", "remove", "jump", "gha", "completion", "__complete"}
 
 func usageText() string {
 	return `Usage: wt <command> [options] [args]
 
 Commands:
-  root          Navigate to repository root
+  jump          Jump to a worktree or repository root
   create        Create a new worktree with branch
   remove        Remove a worktree and its branch (auto-detects if inside worktree)
   gha           Monitor GitHub Actions status for current branch's PR
@@ -31,7 +31,8 @@ Options:
   -h, --help       Show this help message
 
 Examples:
-  wt root                    Navigate to repository root
+  wt jump                    Navigate to repository root (from worktree)
+  wt jump my-feature         Jump to 'my-feature' worktree
   wt create my-feature       Create worktree for 'my-feature' branch
   wt create --hook setup.sh feat    Create worktree, run setup.sh as hook
   wt remove my-feature       Remove worktree and branch
@@ -119,12 +120,15 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 		return "", "", "", err
 	}
 
-	// root command takes no additional arguments
-	if cmd == "root" {
+	// jump command takes an optional worktree name
+	if cmd == "jump" {
 		if idx < len(args) {
-			return "", "", "", fmt.Errorf("unexpected argument: %s", args[idx])
+			name = args[idx]
+			if idx+1 < len(args) {
+				return "", "", "", fmt.Errorf("unexpected argument: %s", args[idx+1])
+			}
 		}
-		return cmd, "", hookPath, nil
+		return cmd, name, hookPath, nil
 	}
 
 	// gha command takes no additional arguments
@@ -200,8 +204,8 @@ func run(args []string) error {
 	}
 
 	switch cmd {
-	case "root":
-		return root()
+	case "jump":
+		return jump(name)
 	case "create":
 		return create(name, hookPath)
 	case "remove":
@@ -211,7 +215,7 @@ func run(args []string) error {
 	case "completion":
 		return completion(name, os.Stdout)
 	default: // __complete
-		if name == "remove" {
+		if name == "remove" || name == "jump" {
 			return completeWorktrees(os.Stdout)
 		}
 		return nil

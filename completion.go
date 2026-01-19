@@ -57,11 +57,17 @@ func bashCompletion(w io.Writer) error {
     local cur prev words cword
     _init_completion || return
 
-    local commands="root create remove gha completion"
+    local commands="jump create remove gha completion"
 
     case "${prev}" in
         wt)
             COMPREPLY=($(compgen -W "${commands}" -- "${cur}"))
+            return
+            ;;
+        jump)
+            local worktrees
+            worktrees=$(wt __complete jump 2>/dev/null)
+            COMPREPLY=($(compgen -W "${worktrees}" -- "${cur}"))
             return
             ;;
         remove)
@@ -104,14 +110,14 @@ func zshCompletion(w io.Writer) error {
 
 _wt_worktrees() {
     local worktrees
-    worktrees=(${(f)"$(wt __complete remove 2>/dev/null)"})
+    worktrees=(${(f)"$(wt __complete jump 2>/dev/null)"})
     _describe -t worktrees 'worktrees' worktrees
 }
 
 _wt() {
     local -a commands
     commands=(
-        'root:Navigate to repository root'
+        'jump:Jump to a worktree or repo root'
         'create:Create a new worktree with branch'
         'remove:Remove a worktree and its branch'
         'gha:Monitor GitHub Actions status for current branch PR'
@@ -133,6 +139,9 @@ _wt() {
             ;;
         args)
             case $words[2] in
+                jump)
+                    _wt_worktrees
+                    ;;
                 remove)
                     _wt_worktrees
                     ;;
@@ -157,14 +166,14 @@ func fishCompletion(w io.Writer) error {
 	script := `# Fish completion for wt
 
 function __wt_worktrees
-    wt __complete remove 2>/dev/null
+    wt __complete jump 2>/dev/null
 end
 
 # Disable file completion by default
 complete -c wt -f
 
 # Commands
-complete -c wt -n "__fish_use_subcommand" -a "root" -d "Navigate to repository root"
+complete -c wt -n "__fish_use_subcommand" -a "jump" -d "Jump to a worktree or repo root"
 complete -c wt -n "__fish_use_subcommand" -a "create" -d "Create a new worktree with branch"
 complete -c wt -n "__fish_use_subcommand" -a "remove" -d "Remove a worktree and its branch"
 complete -c wt -n "__fish_use_subcommand" -a "gha" -d "Monitor GitHub Actions status"
@@ -173,6 +182,9 @@ complete -c wt -n "__fish_use_subcommand" -a "completion" -d "Generate shell com
 # Options
 complete -c wt -s h -l help -d "Show help message"
 complete -c wt -l hook -r -d "Custom hook script to run after create"
+
+# Worktree completion for jump
+complete -c wt -n "__fish_seen_subcommand_from jump" -a "(__wt_worktrees)"
 
 # Worktree completion for remove
 complete -c wt -n "__fish_seen_subcommand_from remove" -a "(__wt_worktrees)"

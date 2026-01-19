@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestRoot(t *testing.T) {
+func TestJump(t *testing.T) {
 	// Save original functions and restore after test
 	origGitRoot := gitMainRootFn
 	origGetwd := getwdFn
@@ -24,13 +24,13 @@ func TestRoot(t *testing.T) {
 			return "", errors.New("not in a git repository")
 		}
 
-		err := root()
+		err := jump("")
 		if err == nil || err.Error() != "not in a git repository" {
-			t.Errorf("root() error = %v, want 'not in a git repository'", err)
+			t.Errorf("jump() error = %v, want 'not in a git repository'", err)
 		}
 	})
 
-	t.Run("inside worktree outputs root path", func(t *testing.T) {
+	t.Run("no name inside worktree outputs root path", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		worktreePath := filepath.Join(tmpDir, WorktreesDir, "my-feature")
 
@@ -46,7 +46,7 @@ func TestRoot(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := root()
+		err := jump("")
 
 		w.Close()
 		os.Stdout = oldStdout
@@ -56,14 +56,14 @@ func TestRoot(t *testing.T) {
 		output := strings.TrimSpace(buf.String())
 
 		if err != nil {
-			t.Errorf("root() unexpected error: %v", err)
+			t.Errorf("jump() unexpected error: %v", err)
 		}
 		if output != tmpDir {
-			t.Errorf("root() stdout = %q, want %q", output, tmpDir)
+			t.Errorf("jump() stdout = %q, want %q", output, tmpDir)
 		}
 	})
 
-	t.Run("inside worktree subdirectory outputs root path", func(t *testing.T) {
+	t.Run("no name inside worktree subdirectory outputs root path", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		worktreePath := filepath.Join(tmpDir, WorktreesDir, "my-feature", "src", "components")
 
@@ -79,7 +79,7 @@ func TestRoot(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := root()
+		err := jump("")
 
 		w.Close()
 		os.Stdout = oldStdout
@@ -89,14 +89,14 @@ func TestRoot(t *testing.T) {
 		output := strings.TrimSpace(buf.String())
 
 		if err != nil {
-			t.Errorf("root() unexpected error: %v", err)
+			t.Errorf("jump() unexpected error: %v", err)
 		}
 		if output != tmpDir {
-			t.Errorf("root() stdout = %q, want %q", output, tmpDir)
+			t.Errorf("jump() stdout = %q, want %q", output, tmpDir)
 		}
 	})
 
-	t.Run("not inside worktree outputs nothing", func(t *testing.T) {
+	t.Run("no name not inside worktree outputs nothing", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		gitMainRootFn = func() (string, error) {
@@ -111,7 +111,7 @@ func TestRoot(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := root()
+		err := jump("")
 
 		w.Close()
 		os.Stdout = oldStdout
@@ -121,14 +121,14 @@ func TestRoot(t *testing.T) {
 		output := buf.String()
 
 		if err != nil {
-			t.Errorf("root() unexpected error: %v", err)
+			t.Errorf("jump() unexpected error: %v", err)
 		}
 		if output != "" {
-			t.Errorf("root() stdout = %q, want empty", output)
+			t.Errorf("jump() stdout = %q, want empty", output)
 		}
 	})
 
-	t.Run("at repository root outputs nothing", func(t *testing.T) {
+	t.Run("no name at repository root outputs nothing", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		gitMainRootFn = func() (string, error) {
@@ -143,7 +143,7 @@ func TestRoot(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := root()
+		err := jump("")
 
 		w.Close()
 		os.Stdout = oldStdout
@@ -153,14 +153,14 @@ func TestRoot(t *testing.T) {
 		output := buf.String()
 
 		if err != nil {
-			t.Errorf("root() unexpected error: %v", err)
+			t.Errorf("jump() unexpected error: %v", err)
 		}
 		if output != "" {
-			t.Errorf("root() stdout = %q, want empty", output)
+			t.Errorf("jump() stdout = %q, want empty", output)
 		}
 	})
 
-	t.Run("getwd error is handled gracefully", func(t *testing.T) {
+	t.Run("no name getwd error is handled gracefully", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		gitMainRootFn = func() (string, error) {
@@ -175,7 +175,7 @@ func TestRoot(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := root()
+		err := jump("")
 
 		w.Close()
 		os.Stdout = oldStdout
@@ -185,11 +185,59 @@ func TestRoot(t *testing.T) {
 		output := buf.String()
 
 		if err != nil {
-			t.Errorf("root() unexpected error: %v", err)
+			t.Errorf("jump() unexpected error: %v", err)
 		}
 		// Should not output anything when getwd fails
 		if output != "" {
-			t.Errorf("root() stdout = %q, want empty", output)
+			t.Errorf("jump() stdout = %q, want empty", output)
+		}
+	})
+
+	t.Run("with name to existing worktree outputs path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		worktreesDir := filepath.Join(tmpDir, WorktreesDir)
+		worktreePath := filepath.Join(worktreesDir, "my-feature")
+		os.MkdirAll(worktreePath, 0755)
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+
+		// Capture stdout
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		err := jump("my-feature")
+
+		w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		output := strings.TrimSpace(buf.String())
+
+		if err != nil {
+			t.Errorf("jump() unexpected error: %v", err)
+		}
+		if output != worktreePath {
+			t.Errorf("jump() stdout = %q, want %q", output, worktreePath)
+		}
+	})
+
+	t.Run("with name to non-existent worktree returns error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+
+		err := jump("non-existent")
+		if err == nil {
+			t.Error("jump() expected error for non-existent worktree")
+		}
+		if err != nil && !strings.Contains(err.Error(), "does not exist") {
+			t.Errorf("jump() error = %v, want error containing 'does not exist'", err)
 		}
 	})
 }
