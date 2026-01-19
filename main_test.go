@@ -28,6 +28,14 @@ func TestUsageText(t *testing.T) {
 	if !bytes.Contains([]byte(text), []byte("auto-detects")) {
 		t.Error("usageText() missing auto-detect documentation")
 	}
+	// Verify no command usage is documented
+	if !bytes.Contains([]byte(text), []byte("(no command)")) {
+		t.Error("usageText() missing '(no command)' documentation")
+	}
+	// Verify root navigation example
+	if !bytes.Contains([]byte(text), []byte("Navigate to repository root")) {
+		t.Error("usageText() missing 'Navigate to repository root' text")
+	}
 }
 
 func TestPrintUsage(t *testing.T) {
@@ -49,6 +57,7 @@ func TestIsValidCommand(t *testing.T) {
 	}{
 		{"create", "create", true},
 		{"remove", "remove", true},
+		{"root", "root", true},
 		{"gha", "gha", true},
 		{"completion", "completion", true},
 		{"__complete", "__complete", true},
@@ -166,9 +175,11 @@ func TestParseArgs(t *testing.T) {
 		wantErrMsg string
 	}{
 		{
-			name:    "no args",
-			args:    []string{},
-			wantErr: errShowHelpFail,
+			name:     "no args returns root command",
+			args:     []string{},
+			wantCmd:  "root",
+			wantName: "",
+			wantHook: "",
 		},
 		{
 			name:    "help flag -h",
@@ -365,10 +376,21 @@ func TestRun(t *testing.T) {
 		ghPRViewFn = origGhPRView
 	}()
 
-	t.Run("parse error propagates", func(t *testing.T) {
+	t.Run("no args runs root command", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		origGetwd := getwdFn
+		defer func() { getwdFn = origGetwd }()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+		getwdFn = func() (string, error) {
+			return "/some/other/dir", nil
+		}
+
 		err := run([]string{})
-		if !errors.Is(err, errShowHelpFail) {
-			t.Errorf("run() error = %v, want %v", err, errShowHelpFail)
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
 		}
 	})
 
@@ -518,12 +540,8 @@ func TestMainFunc(t *testing.T) {
 		name     string
 		args     []string
 		wantExit int
+		mockRoot bool
 	}{
-		{
-			name:     "no args",
-			args:     []string{"wt"},
-			wantExit: 1,
-		},
 		{
 			name:     "help flag",
 			args:     []string{"wt", "--help"},

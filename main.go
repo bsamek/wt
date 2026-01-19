@@ -8,35 +8,35 @@ import (
 )
 
 // Sentinel errors for testing
-var (
-	errShowHelp     = errors.New("show help")
-	errShowHelpFail = errors.New("show help (error)")
-)
+var errShowHelp = errors.New("show help")
 
 // exitFn is the exit function, replaceable for testing
 var exitFn = os.Exit
 
 // validCommands lists all valid command names
-var validCommands = []string{"create", "remove", "gha", "completion", "__complete"}
+var validCommands = []string{"create", "remove", "root", "gha", "completion", "__complete"}
 
 func usageText() string {
-	return `Usage: wt [options] <name>
+	return `Usage: wt
+       wt [options] <name>
        wt create [options] <name>
        wt remove [name]
        wt gha
        wt completion <shell>
 
 Commands:
-  create      Create a new worktree with branch (default if no command given)
-  remove      Remove a worktree and its branch (auto-detects if inside worktree)
-  gha         Monitor GitHub Actions status for current branch's PR
-  completion  Generate shell completion script (bash, zsh, fish)
+  (no command)  Navigate to repository root (if inside a worktree)
+  create        Create a new worktree with branch (default if name given)
+  remove        Remove a worktree and its branch (auto-detects if inside worktree)
+  gha           Monitor GitHub Actions status for current branch's PR
+  completion    Generate shell completion script (bash, zsh, fish)
 
 Options:
   --hook <path>    Custom hook script to run after create (default: .worktree-hook)
   -h, --help       Show this help message
 
 Examples:
+  wt                         Navigate to repository root (from worktree)
   wt my-feature              Create worktree for 'my-feature' branch
   wt create my-feature       Same as above
   wt --hook setup.sh feat    Create worktree, run setup.sh as hook
@@ -107,7 +107,7 @@ func parseHookFlag(args []string, idx int, defaultHook string) (int, string, err
 // parseArgs parses command line arguments and returns (command, name, hookPath, error)
 func parseArgs(args []string) (cmd string, name string, hookPath string, err error) {
 	if len(args) == 0 {
-		return "", "", "", errShowHelpFail
+		return "root", "", "", nil
 	}
 
 	if isHelpRequested(args) {
@@ -179,6 +179,8 @@ func run(args []string) error {
 	}
 
 	switch cmd {
+	case "root":
+		return root()
 	case "remove":
 		if name == "" {
 			wm, err := NewWorktreeManager()
@@ -212,11 +214,6 @@ func main() {
 		if errors.Is(err, errShowHelp) {
 			printUsage(os.Stdout)
 			exitFn(0)
-			return
-		}
-		if errors.Is(err, errShowHelpFail) {
-			printUsage(os.Stderr)
-			exitFn(1)
 			return
 		}
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
