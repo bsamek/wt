@@ -28,6 +28,14 @@ func TestUsageText(t *testing.T) {
 	if !bytes.Contains([]byte(text), []byte("auto-detects")) {
 		t.Error("usageText() missing auto-detect documentation")
 	}
+	// Verify root command (no args) is documented
+	if !bytes.Contains([]byte(text), []byte("(no command)")) {
+		t.Error("usageText() missing '(no command)' documentation")
+	}
+	// Verify root example is present
+	if !bytes.Contains([]byte(text), []byte("wt                         Navigate to repository root")) {
+		t.Error("usageText() missing root example")
+	}
 }
 
 func TestPrintUsage(t *testing.T) {
@@ -166,9 +174,11 @@ func TestParseArgs(t *testing.T) {
 		wantErrMsg string
 	}{
 		{
-			name:    "no args",
-			args:    []string{},
-			wantErr: errShowHelpFail,
+			name:     "no args",
+			args:     []string{},
+			wantCmd:  "root",
+			wantName: "",
+			wantHook: "",
 		},
 		{
 			name:    "help flag -h",
@@ -365,10 +375,91 @@ func TestRun(t *testing.T) {
 		ghPRViewFn = origGhPRView
 	}()
 
-	t.Run("parse error propagates", func(t *testing.T) {
+	t.Run("root command inside worktree", func(t *testing.T) {
+		origGetwd := getwdFn
+		origStdout := os.Stdout
+		defer func() {
+			getwdFn = origGetwd
+			os.Stdout = origStdout
+		}()
+
+		tmpDir := t.TempDir()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+		// Simulate being inside a worktree
+		getwdFn = func() (string, error) {
+			return tmpDir + "/" + WorktreesDir + "/my-feature", nil
+		}
+
+		// Capture stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		err := run([]string{})
-		if !errors.Is(err, errShowHelpFail) {
-			t.Errorf("run() error = %v, want %v", err, errShowHelpFail)
+
+		w.Close()
+		var buf bytes.Buffer
+		buf.ReadFrom(r)
+		r.Close()
+
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+		output := strings.TrimSpace(buf.String())
+		if output != tmpDir {
+			t.Errorf("run() output = %q, want %q", output, tmpDir)
+		}
+	})
+
+	t.Run("root command outside worktree", func(t *testing.T) {
+		origGetwd := getwdFn
+		origStdout := os.Stdout
+		defer func() {
+			getwdFn = origGetwd
+			os.Stdout = origStdout
+		}()
+
+		tmpDir := t.TempDir()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+		// Simulate being at repo root (not inside worktree)
+		getwdFn = func() (string, error) {
+			return tmpDir, nil
+		}
+
+		// Capture stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		err := run([]string{})
+
+		w.Close()
+		var buf bytes.Buffer
+		buf.ReadFrom(r)
+		r.Close()
+
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+		// Should output nothing (no-op)
+		output := buf.String()
+		if output != "" {
+			t.Errorf("run() output = %q, want empty string", output)
+		}
+	})
+
+	t.Run("root command git root error", func(t *testing.T) {
+		gitMainRootFn = func() (string, error) {
+			return "", errors.New("mock: not in git repo")
+		}
+
+		err := run([]string{})
+		if err == nil || err.Error() != "mock: not in git repo" {
+			t.Errorf("run() error = %v, want 'mock: not in git repo'", err)
 		}
 	})
 
@@ -520,7 +611,7 @@ func TestMainFunc(t *testing.T) {
 		wantExit int
 	}{
 		{
-			name:     "no args",
+			name:     "no args (root command, git error)",
 			args:     []string{"wt"},
 			wantExit: 1,
 		},
