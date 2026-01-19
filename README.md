@@ -59,7 +59,7 @@ wt() {
         return 1
     fi
     case "$1" in
-        completion|__complete|"")
+        completion|__complete|list|version|"")
             "$wt_bin" "$@"
             return $?
             ;;
@@ -90,7 +90,7 @@ function wt --description "Git worktree manager with auto-cd"
         return $status
     end
     switch $argv[1]
-        case completion __complete
+        case completion __complete list version
             $wt_bin $argv
             return $status
     end
