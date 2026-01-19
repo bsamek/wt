@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // Sentinel errors for testing
 var (
-	errShowHelp     = errors.New("show help")
-	errShowHelpFail = errors.New("show help (error)")
+	errShowHelp = errors.New("show help")
 )
 
 // exitFn is the exit function, replaceable for testing
@@ -20,7 +21,7 @@ var exitFn = os.Exit
 var validCommands = []string{"create", "remove", "gha", "completion", "__complete"}
 
 func usageText() string {
-	return `Usage: wt [options] <name>
+	return `Usage: wt [options] [name]
        wt create [options] <name>
        wt remove [name]
        wt gha
@@ -37,13 +38,15 @@ Options:
   -h, --help       Show this help message
 
 Examples:
-  wt my-feature              Create worktree for 'my-feature' branch
-  wt create my-feature       Same as above
-  wt --hook setup.sh feat    Create worktree, run setup.sh as hook
-  wt remove my-feature       Remove worktree and branch
-  wt remove                  Remove current worktree (when inside one)
-  wt gha                     Wait for GHA checks on current branch's PR
-  wt completion bash         Generate bash completion script
+  wt                         Go to repo root when inside a worktree
+ wt my-feature              Create worktree for 'my-feature' branch
+ wt create my-feature       Same as above
+ wt --hook setup.sh feat    Create worktree, run setup.sh as hook
+ wt                         Go to repo root when inside a worktree
+ wt remove my-feature       Remove worktree and branch
+ wt remove                  Remove current worktree (when inside one)
+ wt gha                     Wait for GHA checks on current branch's PR
+ wt completion bash         Generate bash completion script
 `
 }
 
@@ -107,7 +110,7 @@ func parseHookFlag(args []string, idx int, defaultHook string) (int, string, err
 // parseArgs parses command line arguments and returns (command, name, hookPath, error)
 func parseArgs(args []string) (cmd string, name string, hookPath string, err error) {
 	if len(args) == 0 {
-		return "", "", "", errShowHelpFail
+		return "root", "", DefaultHook, nil
 	}
 
 	if isHelpRequested(args) {
@@ -171,6 +174,28 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 	return cmd, name, hookPath, nil
 }
 
+func cdRootIfInWorktree() error {
+	wm, err := NewWorktreeManager()
+	if err != nil {
+		return err
+	}
+
+	cwd, err := getwdFn()
+	if err != nil {
+		return nil
+	}
+	if cwd == wm.Root() {
+		return nil
+	}
+
+	worktreesPath := wm.WorktreesPath()
+	if strings.HasPrefix(cwd, worktreesPath+string(filepath.Separator)) {
+		fmt.Fprintln(os.Stdout, wm.Root())
+	}
+
+	return nil
+}
+
 // run executes the CLI with the given arguments
 func run(args []string) error {
 	cmd, name, hookPath, err := parseArgs(args)
@@ -179,6 +204,8 @@ func run(args []string) error {
 	}
 
 	switch cmd {
+	case "root":
+		return cdRootIfInWorktree()
 	case "remove":
 		if name == "" {
 			wm, err := NewWorktreeManager()
@@ -212,11 +239,6 @@ func main() {
 		if errors.Is(err, errShowHelp) {
 			printUsage(os.Stdout)
 			exitFn(0)
-			return
-		}
-		if errors.Is(err, errShowHelpFail) {
-			printUsage(os.Stderr)
-			exitFn(1)
 			return
 		}
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

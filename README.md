@@ -90,11 +90,12 @@ end
 ## Usage
 
 ```
-wt [options] <name>
+wt [options] [name]
 wt create [options] <name>
 wt remove [name]
 wt gha
 wt completion <shell>
+wt
 ```
 
 ### Commands
@@ -119,6 +120,7 @@ wt completion <shell>
 wt my-feature              # Create worktree for 'my-feature' branch
 wt create my-feature       # Same as above
 wt --hook setup.sh feat    # Create worktree, run setup.sh as hook
+wt                         # Go to repo root when inside a worktree
 wt remove my-feature       # Remove worktree and branch
 wt remove                  # Remove current worktree (when inside one)
 wt gha                     # Monitor GitHub Actions for current branch's PR

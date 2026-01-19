@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ func TestUsageText(t *testing.T) {
 		t.Error("usageText() returned empty string")
 	}
 	// Verify key content is present
-	if !bytes.Contains([]byte(text), []byte("wt [options] <name>")) {
+	if !bytes.Contains([]byte(text), []byte("wt [options] [name]")) {
 		t.Error("usageText() missing usage line")
 	}
 	if !bytes.Contains([]byte(text), []byte("--hook")) {
@@ -166,9 +167,11 @@ func TestParseArgs(t *testing.T) {
 		wantErrMsg string
 	}{
 		{
-			name:    "no args",
-			args:    []string{},
-			wantErr: errShowHelpFail,
+			name:     "no args",
+			args:     []string{},
+			wantCmd:  "root",
+			wantName: "",
+			wantHook: DefaultHook,
 		},
 		{
 			name:    "help flag -h",
@@ -365,10 +368,146 @@ func TestRun(t *testing.T) {
 		ghPRViewFn = origGhPRView
 	}()
 
-	t.Run("parse error propagates", func(t *testing.T) {
+	t.Run("no args in worktree outputs root", func(t *testing.T) {
+		origGetwd := getwdFn
+		origStdout := os.Stdout
+		defer func() {
+			getwdFn = origGetwd
+			os.Stdout = origStdout
+		}()
+
+		tmpDir := t.TempDir()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+		getwdFn = func() (string, error) {
+			return tmpDir + "/" + WorktreesDir + "/test-branch", nil
+		}
+
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		err := run([]string{})
-		if !errors.Is(err, errShowHelpFail) {
-			t.Errorf("run() error = %v, want %v", err, errShowHelpFail)
+		w.Close()
+		out, _ := io.ReadAll(r)
+		r.Close()
+
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+		if strings.TrimSpace(string(out)) != tmpDir {
+			t.Errorf("run() stdout = %q, want %q", strings.TrimSpace(string(out)), tmpDir)
+		}
+	})
+
+	t.Run("no args at root outputs nothing", func(t *testing.T) {
+		origGetwd := getwdFn
+		origStdout := os.Stdout
+		defer func() {
+			getwdFn = origGetwd
+			os.Stdout = origStdout
+		}()
+
+		tmpDir := t.TempDir()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+		getwdFn = func() (string, error) {
+			return tmpDir, nil
+		}
+
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		err := run([]string{})
+		w.Close()
+		out, _ := io.ReadAll(r)
+		r.Close()
+
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+		if strings.TrimSpace(string(out)) != "" {
+			t.Errorf("run() stdout = %q, want empty", strings.TrimSpace(string(out)))
+		}
+	})
+
+	t.Run("no args outside worktree outputs nothing", func(t *testing.T) {
+		origGetwd := getwdFn
+		origStdout := os.Stdout
+		defer func() {
+			getwdFn = origGetwd
+			os.Stdout = origStdout
+		}()
+
+		tmpDir := t.TempDir()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+		getwdFn = func() (string, error) {
+			return tmpDir + "/elsewhere", nil
+		}
+
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		err := run([]string{})
+		w.Close()
+		out, _ := io.ReadAll(r)
+		r.Close()
+
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+		if strings.TrimSpace(string(out)) != "" {
+			t.Errorf("run() stdout = %q, want empty", strings.TrimSpace(string(out)))
+		}
+	})
+
+	t.Run("no args getwd error", func(t *testing.T) {
+		origGetwd := getwdFn
+		origStdout := os.Stdout
+		defer func() {
+			getwdFn = origGetwd
+			os.Stdout = origStdout
+		}()
+
+		tmpDir := t.TempDir()
+
+		gitMainRootFn = func() (string, error) {
+			return tmpDir, nil
+		}
+		getwdFn = func() (string, error) {
+			return "", errors.New("mock: getwd failed")
+		}
+
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		err := run([]string{})
+		w.Close()
+		out, _ := io.ReadAll(r)
+		r.Close()
+
+		if err != nil {
+			t.Errorf("run() unexpected error: %v", err)
+		}
+		if strings.TrimSpace(string(out)) != "" {
+			t.Errorf("run() stdout = %q, want empty", strings.TrimSpace(string(out)))
+		}
+	})
+
+	t.Run("no args git root error", func(t *testing.T) {
+		gitMainRootFn = func() (string, error) {
+			return "", errors.New("mock: not in git repo")
+		}
+
+		err := run([]string{})
+		if err == nil || err.Error() != "mock: not in git repo" {
+			t.Errorf("run() error = %v, want 'mock: not in git repo'", err)
 		}
 	})
 
