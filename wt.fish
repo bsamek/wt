@@ -21,7 +21,7 @@ function wt --description "Git worktree manager with auto-cd"
     end
 
     switch $argv[1]
-        case completion __complete
+        case completion __complete list version
             $wt_bin $argv
             return $status
     end
