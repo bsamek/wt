@@ -57,7 +57,7 @@ func bashCompletion(w io.Writer) error {
     local cur prev words cword
     _init_completion || return
 
-    local commands="jump create remove gha completion"
+    local commands="jump create remove list gha completion"
 
     case "${prev}" in
         wt)
@@ -120,6 +120,7 @@ _wt() {
         'jump:Jump to a worktree or repo root'
         'create:Create a new worktree with branch'
         'remove:Remove a worktree and its branch'
+        'list:List all worktrees'
         'gha:Monitor GitHub Actions status for current branch PR'
         'completion:Generate shell completion script'
     )
@@ -176,6 +177,7 @@ complete -c wt -f
 complete -c wt -n "__fish_use_subcommand" -a "jump" -d "Jump to a worktree or repo root"
 complete -c wt -n "__fish_use_subcommand" -a "create" -d "Create a new worktree with branch"
 complete -c wt -n "__fish_use_subcommand" -a "remove" -d "Remove a worktree and its branch"
+complete -c wt -n "__fish_use_subcommand" -a "list" -d "List all worktrees"
 complete -c wt -n "__fish_use_subcommand" -a "gha" -d "Monitor GitHub Actions status"
 complete -c wt -n "__fish_use_subcommand" -a "completion" -d "Generate shell completion script"
 
