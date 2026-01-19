@@ -17,16 +17,11 @@ var exitFn = os.Exit
 var validCommands = []string{"create", "remove", "root", "gha", "completion", "__complete"}
 
 func usageText() string {
-	return `Usage: wt
-       wt [options] <name>
-       wt create [options] <name>
-       wt remove [name]
-       wt gha
-       wt completion <shell>
+	return `Usage: wt <command> [options] [args]
 
 Commands:
-  (no command)  Navigate to repository root (if inside a worktree)
-  create        Create a new worktree with branch (default if name given)
+  root          Navigate to repository root
+  create        Create a new worktree with branch
   remove        Remove a worktree and its branch (auto-detects if inside worktree)
   gha           Monitor GitHub Actions status for current branch's PR
   completion    Generate shell completion script (bash, zsh, fish)
@@ -36,10 +31,9 @@ Options:
   -h, --help       Show this help message
 
 Examples:
-  wt                         Navigate to repository root (from worktree)
-  wt my-feature              Create worktree for 'my-feature' branch
-  wt create my-feature       Same as above
-  wt --hook setup.sh feat    Create worktree, run setup.sh as hook
+  wt root                    Navigate to repository root
+  wt create my-feature       Create worktree for 'my-feature' branch
+  wt create --hook setup.sh feat    Create worktree, run setup.sh as hook
   wt remove my-feature       Remove worktree and branch
   wt remove                  Remove current worktree (when inside one)
   wt gha                     Wait for GHA checks on current branch's PR
@@ -71,15 +65,15 @@ func isHelpRequested(args []string) bool {
 	return false
 }
 
-// parseCommand extracts the command from arguments, defaulting to "create"
-func parseCommand(args []string) (cmd string, startIdx int) {
+// parseCommand extracts the command from arguments, returning an error for unknown commands
+func parseCommand(args []string) (cmd string, startIdx int, err error) {
 	if len(args) == 0 {
-		return "create", 0
+		return "", 0, nil
 	}
 	if isValidCommand(args[0]) {
-		return args[0], 1
+		return args[0], 1, nil
 	}
-	return "create", 0
+	return "", 0, fmt.Errorf("unknown command: %s", args[0])
 }
 
 // parseHookFlag parses the --hook flag from arguments starting at idx
@@ -107,19 +101,30 @@ func parseHookFlag(args []string, idx int, defaultHook string) (int, string, err
 // parseArgs parses command line arguments and returns (command, name, hookPath, error)
 func parseArgs(args []string) (cmd string, name string, hookPath string, err error) {
 	if len(args) == 0 {
-		return "root", "", "", nil
+		return "", "", "", errShowHelp
 	}
 
 	if isHelpRequested(args) {
 		return "", "", "", errShowHelp
 	}
 
-	cmd, idx := parseCommand(args)
+	cmd, idx, err := parseCommand(args)
+	if err != nil {
+		return "", "", "", err
+	}
 
 	// Parse hook flag
 	idx, hookPath, err = parseHookFlag(args, idx, DefaultHook)
 	if err != nil {
 		return "", "", "", err
+	}
+
+	// root command takes no additional arguments
+	if cmd == "root" {
+		if idx < len(args) {
+			return "", "", "", fmt.Errorf("unexpected argument: %s", args[idx])
+		}
+		return cmd, "", hookPath, nil
 	}
 
 	// gha command takes no additional arguments
@@ -171,6 +176,22 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 	return cmd, name, hookPath, nil
 }
 
+// runRemove executes the remove command, detecting current worktree if name is empty
+func runRemove(name string) error {
+	if name == "" {
+		wm, err := NewWorktreeManager()
+		if err != nil {
+			return err
+		}
+		// CurrentWorktreeName returns empty string if not in worktree (never errors)
+		name, _ = wm.CurrentWorktreeName()
+		if name == "" {
+			return fmt.Errorf("not inside a worktree (specify branch name)")
+		}
+	}
+	return remove(name)
+}
+
 // run executes the CLI with the given arguments
 func run(args []string) error {
 	cmd, name, hookPath, err := parseArgs(args)
@@ -181,30 +202,19 @@ func run(args []string) error {
 	switch cmd {
 	case "root":
 		return root()
+	case "create":
+		return create(name, hookPath)
 	case "remove":
-		if name == "" {
-			wm, err := NewWorktreeManager()
-			if err != nil {
-				return err
-			}
-			// CurrentWorktreeName returns empty string if not in worktree (never errors)
-			name, _ = wm.CurrentWorktreeName()
-			if name == "" {
-				return fmt.Errorf("not inside a worktree (specify branch name)")
-			}
-		}
-		return remove(name)
+		return runRemove(name)
 	case "gha":
 		return gha()
 	case "completion":
 		return completion(name, os.Stdout)
-	case "__complete":
+	default: // __complete
 		if name == "remove" {
 			return completeWorktrees(os.Stdout)
 		}
 		return nil
-	default:
-		return create(name, hookPath)
 	}
 }
 

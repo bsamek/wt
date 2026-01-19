@@ -14,23 +14,19 @@ func TestUsageText(t *testing.T) {
 		t.Error("usageText() returned empty string")
 	}
 	// Verify key content is present
-	if !bytes.Contains([]byte(text), []byte("wt [options] <name>")) {
+	if !bytes.Contains([]byte(text), []byte("wt <command>")) {
 		t.Error("usageText() missing usage line")
 	}
 	if !bytes.Contains([]byte(text), []byte("--hook")) {
 		t.Error("usageText() missing --hook option")
 	}
-	// Verify remove shows optional name
-	if !bytes.Contains([]byte(text), []byte("wt remove [name]")) {
-		t.Error("usageText() missing 'wt remove [name]' line")
-	}
 	// Verify auto-detect is documented
 	if !bytes.Contains([]byte(text), []byte("auto-detects")) {
 		t.Error("usageText() missing auto-detect documentation")
 	}
-	// Verify no command usage is documented
-	if !bytes.Contains([]byte(text), []byte("(no command)")) {
-		t.Error("usageText() missing '(no command)' documentation")
+	// Verify root command is documented
+	if !bytes.Contains([]byte(text), []byte("root")) {
+		t.Error("usageText() missing 'root' command")
 	}
 	// Verify root navigation example
 	if !bytes.Contains([]byte(text), []byte("Navigate to repository root")) {
@@ -98,21 +94,37 @@ func TestIsHelpRequested(t *testing.T) {
 
 func TestParseCommand(t *testing.T) {
 	tests := []struct {
-		name    string
-		args    []string
-		wantCmd string
-		wantIdx int
+		name       string
+		args       []string
+		wantCmd    string
+		wantIdx    int
+		wantErrMsg string
 	}{
-		{"empty", []string{}, "create", 0},
-		{"create", []string{"create", "foo"}, "create", 1},
-		{"remove", []string{"remove", "foo"}, "remove", 1},
-		{"gha", []string{"gha"}, "gha", 1},
-		{"implicit create", []string{"my-branch"}, "create", 0},
+		{"empty", []string{}, "", 0, ""},
+		{"create", []string{"create", "foo"}, "create", 1, ""},
+		{"remove", []string{"remove", "foo"}, "remove", 1, ""},
+		{"root", []string{"root"}, "root", 1, ""},
+		{"gha", []string{"gha"}, "gha", 1, ""},
+		{"unknown command", []string{"my-branch"}, "", 0, "unknown command: my-branch"},
+		{"unknown with args", []string{"foo", "bar"}, "", 0, "unknown command: foo"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, idx := parseCommand(tt.args)
+			cmd, idx, err := parseCommand(tt.args)
+
+			if tt.wantErrMsg != "" {
+				if err == nil || err.Error() != tt.wantErrMsg {
+					t.Errorf("parseCommand() error = %v, want %q", err, tt.wantErrMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("parseCommand() unexpected error: %v", err)
+				return
+			}
+
 			if cmd != tt.wantCmd {
 				t.Errorf("parseCommand() cmd = %q, want %q", cmd, tt.wantCmd)
 			}
@@ -175,11 +187,9 @@ func TestParseArgs(t *testing.T) {
 		wantErrMsg string
 	}{
 		{
-			name:     "no args returns root command",
-			args:     []string{},
-			wantCmd:  "root",
-			wantName: "",
-			wantHook: "",
+			name:    "no args shows help",
+			args:    []string{},
+			wantErr: errShowHelp,
 		},
 		{
 			name:    "help flag -h",
@@ -197,11 +207,9 @@ func TestParseArgs(t *testing.T) {
 			wantErr: errShowHelp,
 		},
 		{
-			name:     "simple name (default create)",
-			args:     []string{"my-feature"},
-			wantCmd:  "create",
-			wantName: "my-feature",
-			wantHook: DefaultHook,
+			name:       "unknown command (no implicit create)",
+			args:       []string{"my-feature"},
+			wantErrMsg: "unknown command: my-feature",
 		},
 		{
 			name:     "explicit create",
@@ -218,11 +226,9 @@ func TestParseArgs(t *testing.T) {
 			wantHook: DefaultHook,
 		},
 		{
-			name:     "create with hook",
-			args:     []string{"--hook", "setup.sh", "my-feature"},
-			wantCmd:  "create",
-			wantName: "my-feature",
-			wantHook: "setup.sh",
+			name:       "hook without command is unknown flag",
+			args:       []string{"--hook", "setup.sh", "my-feature"},
+			wantErrMsg: "unknown command: --hook",
 		},
 		{
 			name:     "create explicit with hook",
@@ -232,18 +238,33 @@ func TestParseArgs(t *testing.T) {
 			wantHook: "setup.sh",
 		},
 		{
-			name:       "hook without path",
+			name:       "hook without path requires command",
 			args:       []string{"--hook"},
+			wantErrMsg: "unknown command: --hook",
+		},
+		{
+			name:       "create hook without path",
+			args:       []string{"create", "--hook"},
 			wantErrMsg: "--hook requires a path argument",
 		},
 		{
-			name:       "unknown flag",
+			name:       "unknown flag requires command",
 			args:       []string{"--unknown", "foo"},
+			wantErrMsg: "unknown command: --unknown",
+		},
+		{
+			name:       "create unknown flag",
+			args:       []string{"create", "--unknown", "foo"},
 			wantErrMsg: "unknown flag --unknown",
 		},
 		{
-			name:       "unknown short flag",
+			name:       "unknown short flag requires command",
 			args:       []string{"-x", "foo"},
+			wantErrMsg: "unknown command: -x",
+		},
+		{
+			name:       "create unknown short flag",
+			args:       []string{"create", "-x", "foo"},
 			wantErrMsg: "unknown flag -x",
 		},
 		{
@@ -267,6 +288,18 @@ func TestParseArgs(t *testing.T) {
 			name:       "hook at end without value",
 			args:       []string{"create", "--hook"},
 			wantErrMsg: "--hook requires a path argument",
+		},
+		{
+			name:     "root command",
+			args:     []string{"root"},
+			wantCmd:  "root",
+			wantName: "",
+			wantHook: DefaultHook,
+		},
+		{
+			name:       "root command with extra arg",
+			args:       []string{"root", "extra"},
+			wantErrMsg: "unexpected argument: extra",
 		},
 		{
 			name:     "gha command no args",
@@ -376,7 +409,14 @@ func TestRun(t *testing.T) {
 		ghPRViewFn = origGhPRView
 	}()
 
-	t.Run("no args runs root command", func(t *testing.T) {
+	t.Run("no args shows help", func(t *testing.T) {
+		err := run([]string{})
+		if !errors.Is(err, errShowHelp) {
+			t.Errorf("run() error = %v, want %v", err, errShowHelp)
+		}
+	})
+
+	t.Run("root command runs root", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		origGetwd := getwdFn
 		defer func() { getwdFn = origGetwd }()
@@ -388,7 +428,7 @@ func TestRun(t *testing.T) {
 			return "/some/other/dir", nil
 		}
 
-		err := run([]string{})
+		err := run([]string{"root"})
 		if err != nil {
 			t.Errorf("run() unexpected error: %v", err)
 		}
@@ -406,9 +446,16 @@ func TestRun(t *testing.T) {
 			return "", errors.New("mock: not in git repo")
 		}
 
-		err := run([]string{"my-feature"})
+		err := run([]string{"create", "my-feature"})
 		if err == nil || err.Error() != "mock: not in git repo" {
 			t.Errorf("run() error = %v, want 'mock: not in git repo'", err)
+		}
+	})
+
+	t.Run("unknown command returns error", func(t *testing.T) {
+		err := run([]string{"my-feature"})
+		if err == nil || err.Error() != "unknown command: my-feature" {
+			t.Errorf("run() error = %v, want 'unknown command: my-feature'", err)
 		}
 	})
 
@@ -553,8 +600,13 @@ func TestMainFunc(t *testing.T) {
 			wantExit: 0,
 		},
 		{
-			name:     "error from run",
+			name:     "error from run (unknown command)",
 			args:     []string{"wt", "test-branch"},
+			wantExit: 1,
+		},
+		{
+			name:     "error from run (create fails)",
+			args:     []string{"wt", "create", "test-branch"},
 			wantExit: 1,
 		},
 	}
@@ -616,7 +668,7 @@ func TestMainSuccess(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	os.Args = []string{"wt", "test-branch"}
+	os.Args = []string{"wt", "create", "test-branch"}
 	main()
 
 	w.Close()

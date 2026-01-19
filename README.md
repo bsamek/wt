@@ -57,7 +57,7 @@ wt() {
         return 1
     fi
     case "$1" in
-        completion|__complete)
+        completion|__complete|"")
             "$wt_bin" "$@"
             return $?
             ;;
@@ -83,12 +83,14 @@ function wt --description "Git worktree manager with auto-cd"
         echo "error: wt binary not found in PATH" >&2
         return 1
     end
-    if test (count $argv) -gt 0
-        switch $argv[1]
-            case completion __complete
-                $wt_bin $argv
-                return $status
-        end
+    if test (count $argv) -eq 0
+        $wt_bin
+        return $status
+    end
+    switch $argv[1]
+        case completion __complete
+            $wt_bin $argv
+            return $status
     end
     set -l dir ($wt_bin $argv)
     set -l exit_code $status
@@ -103,20 +105,15 @@ end
 ## Usage
 
 ```
-wt
-wt [options] <name>
-wt create [options] <name>
-wt remove [name]
-wt gha
-wt completion <shell>
+wt <command> [options] [args]
 ```
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| (no command) | Navigate to repository root (if inside a worktree) |
-| `create` | Create a new worktree with branch (default if name given) |
+| `root` | Navigate to repository root |
+| `create` | Create a new worktree with branch |
 | `remove` | Remove a worktree and its branch (auto-detects if inside worktree) |
 | `gha` | Monitor GitHub Actions status for current branch's PR |
 | `completion` | Generate shell completion script (bash, zsh, fish) |
@@ -131,10 +128,9 @@ wt completion <shell>
 ### Examples
 
 ```bash
-wt                         # Navigate to repository root (from worktree)
-wt my-feature              # Create worktree for 'my-feature' branch
-wt create my-feature       # Same as above
-wt --hook setup.sh feat    # Create worktree, run setup.sh as hook
+wt root                    # Navigate to repository root
+wt create my-feature       # Create worktree for 'my-feature' branch
+wt create --hook setup.sh feat    # Create worktree, run setup.sh as hook
 wt remove my-feature       # Remove worktree and branch
 wt remove                  # Remove current worktree (when inside one)
 wt gha                     # Monitor GitHub Actions for current branch's PR

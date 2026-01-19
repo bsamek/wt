@@ -18,7 +18,7 @@ wt() {
 
     # Pass through commands that produce non-directory output
     case "$1" in
-        completion|__complete)
+        completion|__complete|"")
             "$wt_bin" "$@"
             return $?
             ;;

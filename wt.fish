@@ -14,13 +14,16 @@ function wt --description "Git worktree manager with auto-cd"
         return 1
     end
 
-    # Pass through commands that produce non-directory output
-    if test (count $argv) -gt 0
-        switch $argv[1]
-            case completion __complete
-                $wt_bin $argv
-                return $status
-        end
+    # Pass through commands that produce non-directory output (including no args for help)
+    if test (count $argv) -eq 0
+        $wt_bin
+        return $status
+    end
+
+    switch $argv[1]
+        case completion __complete
+            $wt_bin $argv
+            return $status
     end
 
     # Run wt and capture stdout (the directory path)
