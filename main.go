@@ -14,7 +14,7 @@ var errShowHelp = errors.New("show help")
 var exitFn = os.Exit
 
 // validCommands lists all valid command names
-var validCommands = []string{"create", "remove", "jump", "gha", "completion", "version", "__complete"}
+var validCommands = []string{"create", "remove", "jump", "list", "gha", "completion", "version", "__complete"}
 
 func usageText() string {
 	return `Usage: wt <command> [options] [args]
@@ -23,6 +23,7 @@ Commands:
   jump          Jump to a worktree or repository root
   create        Create a new worktree with branch
   remove        Remove a worktree and its branch (auto-detects if inside worktree)
+  list          List all worktrees
   gha           Monitor GitHub Actions status for current branch's PR
   completion    Generate shell completion script (bash, zsh, fish)
   version       Print version information
@@ -38,6 +39,7 @@ Examples:
   wt create --hook setup.sh feat    Create worktree, run setup.sh as hook
   wt remove my-feature       Remove worktree and branch
   wt remove                  Remove current worktree (when inside one)
+  wt list                    List all worktrees
   wt gha                     Wait for GHA checks on current branch's PR
   wt completion bash         Generate bash completion script
   wt version                 Print version information
@@ -141,6 +143,14 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 		return cmd, "", hookPath, nil
 	}
 
+	// list command takes no additional arguments
+	if cmd == "list" {
+		if idx < len(args) {
+			return "", "", "", fmt.Errorf("unexpected argument: %s", args[idx])
+		}
+		return cmd, "", hookPath, nil
+	}
+
 	// version command takes no additional arguments
 	if cmd == "version" {
 		if idx < len(args) {
@@ -220,6 +230,8 @@ func run(args []string) error {
 		return create(name, hookPath)
 	case "remove":
 		return runRemove(name)
+	case "list":
+		return list(os.Stdout)
 	case "gha":
 		return gha()
 	case "completion":
