@@ -119,6 +119,7 @@ wt <command> [options] [args]
 | `remove` | Remove a worktree and its branch (auto-detects if inside worktree) |
 | `gha` | Monitor GitHub Actions status for current branch's PR |
 | `completion` | Generate shell completion script (bash, zsh, fish) |
+| `version` | Print version information |
 
 ### Options
 
@@ -138,6 +139,7 @@ wt remove my-feature       # Remove worktree and branch
 wt remove                  # Remove current worktree (when inside one)
 wt gha                     # Monitor GitHub Actions for current branch's PR
 wt completion bash         # Generate bash completion script
+wt version                 # Print version information
 ```
 
 ## How It Works

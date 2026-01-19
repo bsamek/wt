@@ -14,7 +14,7 @@ var errShowHelp = errors.New("show help")
 var exitFn = os.Exit
 
 // validCommands lists all valid command names
-var validCommands = []string{"create", "remove", "jump", "gha", "completion", "__complete"}
+var validCommands = []string{"create", "remove", "jump", "gha", "completion", "version", "__complete"}
 
 func usageText() string {
 	return `Usage: wt <command> [options] [args]
@@ -25,6 +25,7 @@ Commands:
   remove        Remove a worktree and its branch (auto-detects if inside worktree)
   gha           Monitor GitHub Actions status for current branch's PR
   completion    Generate shell completion script (bash, zsh, fish)
+  version       Print version information
 
 Options:
   --hook <path>    Custom hook script to run after create (default: .worktree-hook)
@@ -39,6 +40,7 @@ Examples:
   wt remove                  Remove current worktree (when inside one)
   wt gha                     Wait for GHA checks on current branch's PR
   wt completion bash         Generate bash completion script
+  wt version                 Print version information
 `
 }
 
@@ -139,6 +141,14 @@ func parseArgs(args []string) (cmd string, name string, hookPath string, err err
 		return cmd, "", hookPath, nil
 	}
 
+	// version command takes no additional arguments
+	if cmd == "version" {
+		if idx < len(args) {
+			return "", "", "", fmt.Errorf("unexpected argument: %s", args[idx])
+		}
+		return cmd, "", hookPath, nil
+	}
+
 	// completion command takes a shell name
 	if cmd == "completion" {
 		if idx >= len(args) {
@@ -214,12 +224,20 @@ func run(args []string) error {
 		return gha()
 	case "completion":
 		return completion(name, os.Stdout)
+	case "version":
+		return version(os.Stdout)
 	default: // __complete
 		if name == "remove" || name == "jump" {
 			return completeWorktrees(os.Stdout)
 		}
 		return nil
 	}
+}
+
+// version prints the version information
+func version(w io.Writer) error {
+	fmt.Fprintln(w, Version)
+	return nil
 }
 
 func main() {
