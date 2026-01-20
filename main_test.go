@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 )
@@ -647,15 +648,105 @@ func TestRun(t *testing.T) {
 }
 
 func TestVersionFunc(t *testing.T) {
-	var buf bytes.Buffer
-	err := version(&buf)
-	if err != nil {
-		t.Errorf("version() returned error: %v", err)
-	}
-	output := buf.String()
-	if output != Version+"\n" {
-		t.Errorf("version() = %q, want %q", output, Version+"\n")
-	}
+	t.Run("basic output", func(t *testing.T) {
+		var buf bytes.Buffer
+		err := version(&buf)
+		if err != nil {
+			t.Errorf("version() returned error: %v", err)
+		}
+		output := buf.String()
+		// Output should contain something (either version or dev with commit info)
+		if output == "" {
+			t.Error("version() returned empty output")
+		}
+	})
+}
+
+func TestVersionString(t *testing.T) {
+	origVersion := Version
+	origReadBuildInfo := readBuildInfo
+	defer func() {
+		Version = origVersion
+		readBuildInfo = origReadBuildInfo
+	}()
+
+	t.Run("release version", func(t *testing.T) {
+		Version = "v1.2.3"
+		result := versionString()
+		if result != "v1.2.3" {
+			t.Errorf("versionString() = %q, want %q", result, "v1.2.3")
+		}
+	})
+
+	t.Run("dev with no build info", func(t *testing.T) {
+		Version = "dev"
+		readBuildInfo = func() (*debug.BuildInfo, bool) {
+			return nil, false
+		}
+		result := versionString()
+		if result != "dev" {
+			t.Errorf("versionString() = %q, want %q", result, "dev")
+		}
+	})
+
+	t.Run("dev with build info but no vcs", func(t *testing.T) {
+		Version = "dev"
+		readBuildInfo = func() (*debug.BuildInfo, bool) {
+			return &debug.BuildInfo{}, true
+		}
+		result := versionString()
+		if result != "dev" {
+			t.Errorf("versionString() = %q, want %q", result, "dev")
+		}
+	})
+
+	t.Run("dev with vcs revision", func(t *testing.T) {
+		Version = "dev"
+		readBuildInfo = func() (*debug.BuildInfo, bool) {
+			return &debug.BuildInfo{
+				Settings: []debug.BuildSetting{
+					{Key: "vcs.revision", Value: "abc1234567890"},
+					{Key: "vcs.modified", Value: "false"},
+				},
+			}, true
+		}
+		result := versionString()
+		if result != "dev (abc1234)" {
+			t.Errorf("versionString() = %q, want %q", result, "dev (abc1234)")
+		}
+	})
+
+	t.Run("dev with vcs revision dirty", func(t *testing.T) {
+		Version = "dev"
+		readBuildInfo = func() (*debug.BuildInfo, bool) {
+			return &debug.BuildInfo{
+				Settings: []debug.BuildSetting{
+					{Key: "vcs.revision", Value: "abc1234567890"},
+					{Key: "vcs.modified", Value: "true"},
+				},
+			}, true
+		}
+		result := versionString()
+		if result != "dev (abc1234-dirty)" {
+			t.Errorf("versionString() = %q, want %q", result, "dev (abc1234-dirty)")
+		}
+	})
+
+	t.Run("dev with short revision", func(t *testing.T) {
+		Version = "dev"
+		readBuildInfo = func() (*debug.BuildInfo, bool) {
+			return &debug.BuildInfo{
+				Settings: []debug.BuildSetting{
+					{Key: "vcs.revision", Value: "abc"},
+					{Key: "vcs.modified", Value: "false"},
+				},
+			}, true
+		}
+		result := versionString()
+		if result != "dev (abc)" {
+			t.Errorf("versionString() = %q, want %q", result, "dev (abc)")
+		}
+	})
 }
 
 // TestMainFunc tests the main() function by mocking exitFn and os.Args

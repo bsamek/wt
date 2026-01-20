@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 )
 
 // Sentinel errors for testing
@@ -12,6 +13,9 @@ var errShowHelp = errors.New("show help")
 
 // exitFn is the exit function, replaceable for testing
 var exitFn = os.Exit
+
+// readBuildInfo is replaceable for testing
+var readBuildInfo = debug.ReadBuildInfo
 
 // validCommands lists all valid command names
 var validCommands = []string{"create", "remove", "jump", "list", "completion", "version", "__complete"}
@@ -234,9 +238,44 @@ func run(args []string) error {
 	}
 }
 
+// versionString returns the version string, including VCS info for dev builds
+func versionString() string {
+	if Version != "dev" {
+		return Version
+	}
+
+	// For dev builds, try to get VCS info from Go's build info
+	info, ok := readBuildInfo()
+	if !ok {
+		return Version
+	}
+
+	var revision, dirty string
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			if len(setting.Value) >= 7 {
+				revision = setting.Value[:7]
+			} else {
+				revision = setting.Value
+			}
+		case "vcs.modified":
+			if setting.Value == "true" {
+				dirty = "-dirty"
+			}
+		}
+	}
+
+	if revision == "" {
+		return Version
+	}
+
+	return fmt.Sprintf("%s (%s%s)", Version, revision, dirty)
+}
+
 // version prints the version information
 func version(w io.Writer) error {
-	fmt.Fprintln(w, Version)
+	fmt.Fprintln(w, versionString())
 	return nil
 }
 
